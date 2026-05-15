@@ -17,9 +17,10 @@ import ServicioList     from "../pages/servicios/ServicioList";
 import FasesLists       from "../pages/fases/FasesLists";
 import NotasLists       from "../pages/notas/NotasLists";
 
-// Horas
+// Horas y Asistencia
 import HorasList        from "../pages/horas/HorasList";
 import MisHorasList     from "../pages/horas/MisHorasList";
+import MarcajesList     from "../pages/horas/MarcajesList"; // HU 34
 
 // Compartidas
 import ProyectoList     from "../pages/proyectos/ProyectoList";
@@ -111,6 +112,11 @@ export default function AppRouter() {
       } />
       <Route path="/mis-horas" element={
         <RequireAuth><RequireRole roles={["empleado"]}><MisHorasList /></RequireRole></RequireAuth>
+      } />
+
+      {/* ══════════ ASISTENCIA (HU 34) ══════════ */}
+      <Route path="/mis-marcajes" element={
+        <RequireAuth><RequireRole roles={["lider", "empleado"]}><MarcajesList /></RequireRole></RequireAuth>
       } />
 
       {/* ══════════ COMPARTIDAS ══════════ */}
