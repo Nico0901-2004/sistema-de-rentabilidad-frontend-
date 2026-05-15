@@ -177,7 +177,6 @@ const FasesLists = ({ proyectoId: proyectoIdProp, embedded = false, onClose }) =
                 <th>#</th>
                 <th>Fase</th>
                 <th>Horas estimadas</th>
-                <th>Estado</th>
                 {canManage && <th className="text-end">Acciones</th>}
               </tr>
             </thead>
@@ -185,7 +184,7 @@ const FasesLists = ({ proyectoId: proyectoIdProp, embedded = false, onClose }) =
               {loading ? (
                 Array.from({ length: 4 }).map((_, i) => (
                   <tr key={i}>
-                    {Array.from({ length: canManage ? 5 : 4 }).map((_, j) => (
+                    {Array.from({ length: canManage ? 4 : 3 }).map((_, j) => (
                       <td key={j}><div className="skeleton rounded" style={{ height: 20, width: "80%" }}></div></td>
                     ))}
                   </tr>
@@ -205,11 +204,6 @@ const FasesLists = ({ proyectoId: proyectoIdProp, embedded = false, onClose }) =
                     <td className="text-muted small">
                       {Number(fase.horas_estimadas || 0).toFixed(1)}h
                     </td>
-                    <td>
-                      <span className={`badge badge-role ${fase.is_active ? "badge-active" : "badge-inactive"}`}>
-                        {fase.is_active ? "Activa" : "Inactiva"}
-                      </span>
-                    </td>
                     {canManage && (
                       <td className="text-end">
                         <div className="d-flex gap-2 justify-content-end">
@@ -226,7 +220,7 @@ const FasesLists = ({ proyectoId: proyectoIdProp, embedded = false, onClose }) =
                 ))
               ) : (
                 <tr>
-                  <td colSpan={canManage ? 5 : 4}>
+                  <td colSpan={canManage ? 4 : 3}>
                     <div className="empty-state">
                       <i className="bi bi-layers"></i>
                       <h6>Sin fases</h6>

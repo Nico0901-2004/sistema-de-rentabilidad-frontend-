@@ -41,7 +41,7 @@ const EmpresaList = () => {
     fetchData();
   }, [fetchData]);
 
-  const ownerOf = (id_empresa) => owners.find((o) => o.id_empresa === id_empresa);
+  const ownerOf = (id_empresa) => owners.find((o) => String(o.id_empresa) === String(id_empresa));
 
   const handleDelete = async (id) => {
     if (
@@ -247,8 +247,8 @@ const EmpresaList = () => {
                               </p>
                             </div>
 
-                            <span className="badge badge-role badge-active ms-auto">
-                              Owner
+                            <span className="badge badge-role badge-propietario ms-auto">
+                              Propietario
                             </span>
                           </div>
                         ) : (

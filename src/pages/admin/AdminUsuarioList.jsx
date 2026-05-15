@@ -81,8 +81,9 @@ const AdminUsuarioList = () => {
         <div className="row g-3 mb-4 stagger">
           {[
             { label: "Total propietarios", value: owners.length, icon: "bi-people-fill", color: "var(--primary)", bg: "rgba(79,70,229,.1)" },
-            { label: "Activos", value: owners.filter(o => o.is_active).length, icon: "bi-check-circle-fill", color: "var(--success)", bg: "rgba(16,185,129,.1)" },
-            { label: "Inactivos", value: owners.filter(o => !o.is_active).length, icon: "bi-x-circle-fill", color: "var(--danger)", bg: "rgba(239,68,68,.1)" },
+            // TEMP: oculto para no mostrar estado en frontend
+            // { label: "Activos", value: owners.filter(o => o.is_active).length, icon: "bi-check-circle-fill", color: "var(--success)", bg: "rgba(16,185,129,.1)" },
+            // { label: "Inactivos", value: owners.filter(o => !o.is_active).length, icon: "bi-x-circle-fill", color: "var(--danger)", bg: "rgba(239,68,68,.1)" },
           ].map((s, i) => (
             <div className="col-12 col-sm-4" key={i}>
               <div className="stat-card card-3d animate-fadeInUp">
@@ -136,7 +137,6 @@ const AdminUsuarioList = () => {
                   <th>Propietario</th>
                   <th>Correo</th>
                   <th>Empresa</th>
-                  <th>Estado</th>
                   <th className="text-end">Acciones</th>
                 </tr>
               </thead>
@@ -144,7 +144,7 @@ const AdminUsuarioList = () => {
                 {loading ? (
                   Array.from({ length: 4 }).map((_, i) => (
                     <tr key={i}>
-                      {Array.from({ length: 6 }).map((_, j) => (
+                      {Array.from({ length: 5 }).map((_, j) => (
                         <td key={j}><div className="skeleton" style={{ height: 20, width: "80%" }}></div></td>
                       ))}
                     </tr>
@@ -166,11 +166,6 @@ const AdminUsuarioList = () => {
                         {o.empresa_nombre
                           ? <span className="badge badge-role badge-propietario">{o.empresa_nombre}</span>
                           : <span className="text-muted small">Sin empresa</span>}
-                      </td>
-                      <td>
-                        <span className={`badge badge-role ${o.is_active ? "badge-active" : "badge-inactive"}`}>
-                          {o.is_active ? "Activo" : "Inactivo"}
-                        </span>
                       </td>
                       <td className="text-end">
                         <div className="d-flex gap-2 justify-content-end">
@@ -195,7 +190,7 @@ const AdminUsuarioList = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="6">
+                    <td colSpan="5">
                       <div className="empty-state">
                         <i className="bi bi-people"></i>
                         <h6>Sin propietarios</h6>

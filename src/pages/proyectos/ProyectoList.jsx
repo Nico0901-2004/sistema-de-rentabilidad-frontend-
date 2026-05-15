@@ -234,8 +234,9 @@ const PropietarioView = () => {
         <div className="row g-3 mb-4 stagger">
           {[
             { label: "Total proyectos", value: proyectos.length, icon: "bi-kanban-fill", color: "var(--primary)", bg: "rgba(79,70,229,.1)" },
-            { label: "Activos", value: proyectos.filter(isProyectoActivo).length, icon: "bi-check-circle-fill", color: "var(--success)", bg: "rgba(16,185,129,.1)" },
-            { label: "Inactivos", value: proyectos.filter(p => !isProyectoActivo(p)).length, icon: "bi-x-circle-fill", color: "var(--danger)", bg: "rgba(239,68,68,.1)" },
+            // TEMP: oculto para no mostrar estado en frontend
+            // { label: "Activos", value: proyectos.filter(isProyectoActivo).length, icon: "bi-check-circle-fill", color: "var(--success)", bg: "rgba(16,185,129,.1)" },
+            // { label: "Inactivos", value: proyectos.filter(p => !isProyectoActivo(p)).length, icon: "bi-x-circle-fill", color: "var(--danger)", bg: "rgba(239,68,68,.1)" },
           ].map((s, i) => (
             <div className="col-6 col-sm-4" key={i}>
               <div className="stat-card card-3d animate-fadeInUp">
@@ -289,14 +290,13 @@ const PropietarioView = () => {
                   <th style={{ width: "14%" }}>Servicio</th>
                   <th style={{ width: "14%" }}>Líder</th>
                   <th style={{ width: "18%" }}>Fechas</th>
-                  <th style={{ width: "9%" }}>Estado</th>
                   <th className="text-end" style={{ width: "15%" }}>Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   Array.from({ length: 4 }).map((_, i) => (
-                    <tr key={i}>{Array.from({ length: 7 }).map((_, j) => (
+                    <tr key={i}>{Array.from({ length: 6 }).map((_, j) => (
                       <td key={j}><div className="skeleton rounded" style={{ height: 20, width: "80%" }}></div></td>
                     ))}</tr>
                   ))
@@ -343,11 +343,6 @@ const PropietarioView = () => {
                             <span><strong>Real:</strong> {formatProyectoDate(p.fecha_fin_real)}</span>
                           </div>
                         </td>
-                        <td>
-                          <span className={`badge badge-role ${active ? "badge-active" : "badge-inactive"}`}>
-                            {active ? "Activo" : "Inactivo"}
-                          </span>
-                        </td>
                         <td className="text-end" onClick={(e) => e.stopPropagation()}>
                           <div className="d-grid gap-1 ms-auto" style={{ gridTemplateColumns: "repeat(2, 32px)", width: 68 }}>
                             <button className="btn btn-sm btn-primary shadow-sm" title="Ver fases" onClick={() => setContentModal({ type: "fases", proyecto: p })}>
@@ -369,7 +364,7 @@ const PropietarioView = () => {
                   })
                 ) : (
                   <tr>
-                    <td colSpan="7">
+                    <td colSpan="6">
                       <div className="empty-state">
                         <i className="bi bi-kanban"></i>
                         <h6>Sin proyectos</h6>
@@ -510,14 +505,13 @@ const LiderView = () => {
                   <th>Proyecto</th>
                   <th>Servicio</th>
                   <th>Fechas</th>
-                  <th>Estado</th>
                   <th className="text-end">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                    // ... Skeletons ...
-                   <tr><td colSpan="6">Cargando...</td></tr>
+                   <tr><td colSpan="5">Cargando...</td></tr>
                 ) : filtered.length > 0 ? (
                   filtered.map((p) => {
                     const active = isProyectoActivo(p);
@@ -541,11 +535,6 @@ const LiderView = () => {
                           {p.fecha_inicio ? p.fecha_inicio.slice(0, 10) : "—"}
                           {p.fecha_fin_estimada ? <><br /><span style={{ fontSize: 10 }}>Est: {p.fecha_fin_estimada.slice(0, 10)}</span></> : ""}
                           {p.fecha_fin_real && <><br /><span className="text-success" style={{ fontSize: 10 }}>Real: {p.fecha_fin_real.slice(0, 10)}</span></>}
-                        </td>
-                        <td>
-                          <span className={`badge badge-role ${active ? "badge-active" : "badge-inactive"}`}>
-                            {active ? "Activo" : "Finalizado"}
-                          </span>
                         </td>
                         <td className="text-end" onClick={(e) => e.stopPropagation()}>
                           <div className="d-flex gap-2 justify-content-end">
@@ -575,7 +564,7 @@ const LiderView = () => {
                     );
                   })
                 ) : (
-                  <tr><td colSpan="6" className="text-center py-4">No hay proyectos.</td></tr>
+                  <tr><td colSpan="5" className="text-center py-4">No hay proyectos.</td></tr>
                 )}
               </tbody>
             </table>

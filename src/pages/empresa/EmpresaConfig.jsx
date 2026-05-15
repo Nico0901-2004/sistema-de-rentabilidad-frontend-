@@ -12,6 +12,14 @@ const EmpresaConfig = () => {
   const [fetching, setFetching] = useState(true);
   const [mensaje, setMensaje] = useState({ texto: "", tipo: "" });
 
+  const getBackendMessage = (payload) => {
+    if (!payload) return "";
+    if (typeof payload?.message === "string" && payload.message.trim()) return payload.message;
+    const firstErrorMsg = payload?.errors?.[0]?.msg;
+    if (typeof firstErrorMsg === "string" && firstErrorMsg.trim()) return firstErrorMsg;
+    return "";
+  };
+
   useEffect(() => {
     if (!empresaId) {
       setMensaje({ texto: "No se encontró la empresa asociada a tu cuenta.", tipo: "danger" });
@@ -39,10 +47,10 @@ const EmpresaConfig = () => {
       if (res?.success) {
         setMensaje({ texto: "Cambios guardados correctamente.", tipo: "success" });
       } else {
-        setMensaje({ texto: res?.message || "Error al actualizar.", tipo: "danger" });
+        setMensaje({ texto: getBackendMessage(res) || "Error al actualizar.", tipo: "danger" });
       }
     } catch (err) {
-      setMensaje({ texto: err.response?.data?.message || "Error al actualizar la empresa.", tipo: "danger" });
+      setMensaje({ texto: getBackendMessage(err.response?.data) || "Error al actualizar la empresa.", tipo: "danger" });
     } finally {
       setLoading(false);
     }

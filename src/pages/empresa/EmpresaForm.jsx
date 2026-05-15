@@ -16,6 +16,11 @@ const EmpresaForm = ({ show, onClose, onSuccess, empresaId, owner }) => {
   const [successMsg, setSuccessMsg]   = useState("");
   const [confirmDeleteOwner, setConfirmDeleteOwner] = useState(false);
   const [deletingOwner, setDeletingOwner]           = useState(false);
+  const [owners, setOwners] = useState([]);
+  const [loadingOwners, setLoadingOwners] = useState(false);
+  const [selectedOwnerId, setSelectedOwnerId] = useState("");
+  const [currentOwner, setCurrentOwner] = useState(null);
+  const [assigningOwner, setAssigningOwner] = useState(false);
 
   const isEdit = Boolean(empresaId);
 
@@ -24,6 +29,11 @@ const EmpresaForm = ({ show, onClose, onSuccess, empresaId, owner }) => {
     setError("");
     setSuccessMsg("");
     setConfirmDeleteOwner(false);
+    setOwners([]);
+    setLoadingOwners(false);
+    setSelectedOwnerId("");
+    setCurrentOwner(null);
+    setAssigningOwner(false);
     onClose();
   };
 
@@ -44,6 +54,29 @@ const EmpresaForm = ({ show, onClose, onSuccess, empresaId, owner }) => {
     };
     fetchEmpresa();
   }, [empresaId, show]);
+
+  useEffect(() => {
+    const fetchOwners = async () => {
+      if (!show || !empresaId) return;
+      try {
+        setLoadingOwners(true);
+        const res = await api.get("/usuarios/propietarios");
+        const list = res.data?.data || [];
+        setOwners(list);
+
+        const ownerFromList = list.find((o) => String(o.id_empresa) === String(empresaId)) || null;
+        const resolvedCurrent = owner || ownerFromList;
+        setCurrentOwner(resolvedCurrent);
+        setSelectedOwnerId(resolvedCurrent?.id_usuario ? String(resolvedCurrent.id_usuario) : "");
+      } catch {
+        // silent (no bloquear edición de empresa)
+      } finally {
+        setLoadingOwners(false);
+      }
+    };
+
+    fetchOwners();
+  }, [show, empresaId, owner]);
 
   if (!show) return null;
 
@@ -73,10 +106,10 @@ const EmpresaForm = ({ show, onClose, onSuccess, empresaId, owner }) => {
   };
 
   const handleDeleteOwner = async () => {
-    if (!owner) return;
+    if (!currentOwner) return;
     try {
       setDeletingOwner(true);
-      await api.delete(`/usuarios/${owner.id_usuario}/hard-delete`);
+      await api.delete(`/usuarios/${currentOwner.id_usuario}/hard-delete`);
       setConfirmDeleteOwner(false);
       if (onSuccess) onSuccess();
       setSuccessMsg("Propietario eliminado. La empresa quedó sin propietario asignado.");
@@ -85,6 +118,30 @@ const EmpresaForm = ({ show, onClose, onSuccess, empresaId, owner }) => {
       setConfirmDeleteOwner(false);
     } finally {
       setDeletingOwner(false);
+    }
+  };
+
+  const handleAssignOwner = async () => {
+    if (!empresaId || !selectedOwnerId) return;
+    if (currentOwner?.id_usuario && String(currentOwner.id_usuario) === String(selectedOwnerId)) return;
+
+    try {
+      setAssigningOwner(true);
+      setError("");
+      setSuccessMsg("");
+      const res = await api.put(`/usuarios/${selectedOwnerId}`, { id_empresa: empresaId });
+      if (!res.data?.success) {
+        setError(res.data?.message || "No se pudo asignar el propietario.");
+        return;
+      }
+      const updatedOwner = owners.find((o) => String(o.id_usuario) === String(selectedOwnerId)) || currentOwner;
+      setCurrentOwner(updatedOwner);
+      setSuccessMsg("Propietario asignado correctamente.");
+      if (onSuccess) onSuccess();
+    } catch (err) {
+      setError(err.response?.data?.message || "Error al asignar el propietario.");
+    } finally {
+      setAssigningOwner(false);
     }
   };
 
@@ -144,63 +201,12 @@ const EmpresaForm = ({ show, onClose, onSuccess, empresaId, owner }) => {
                 </div>
               </div>
 
-              {/* ── Sección propietario (solo en edición) ── */}
-              {isEdit && (
+              {/* TEMP: Sección de propietario oculta (pendiente de corrección de binding/mapeo) */}
+              {/* {isEdit && (
                 <div className="mb-4">
-                  <label className="form-label fw-semibold small d-flex align-items-center gap-2">
-                    <i className="bi bi-person-fill-gear" style={{ color: "var(--primary)" }}></i>
-                    Propietario asignado
-                  </label>
-
-                  {owner ? (
-                    <div className="border rounded-3 p-3" style={{ background: "rgba(16,185,129,.04)" }}>
-                      <div className="d-flex align-items-center gap-3 mb-3">
-                        <div className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                          style={{ width: 40, height: 40, background: "linear-gradient(135deg,#4F46E5,#06B6D4)", color: "#fff", fontSize: 13, fontWeight: 700 }}>
-                          {owner.nombre.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()}
-                        </div>
-                        <div className="flex-grow-1 overflow-hidden">
-                          <p className="fw-bold mb-0 text-truncate" style={{ fontSize: 14 }}>{owner.nombre}</p>
-                          <p className="text-muted mb-0 text-truncate" style={{ fontSize: 12 }}>{owner.email}</p>
-                        </div>
-                        <span className={`badge badge-role ${owner.is_active ? "badge-active" : "badge-inactive"}`}>
-                          {owner.is_active ? "Activo" : "Inactivo"}
-                        </span>
-                      </div>
-
-                      <div className="d-flex gap-2">
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-primary flex-fill fw-semibold"
-                          onClick={() => navigate("/usuarios", { state: { editOwnerId: owner.id_usuario } })}
-                        >
-                          <i className="bi bi-pencil-square me-1"></i>Editar propietario
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-danger fw-semibold px-3"
-                          onClick={() => setConfirmDeleteOwner(true)}
-                        >
-                          <i className="bi bi-trash-fill me-1"></i>Eliminar
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="border rounded-3 p-3 d-flex align-items-center gap-2"
-                      style={{ background: "rgba(245,158,11,.05)", borderColor: "rgba(245,158,11,.3) !important" }}>
-                      <i className="bi bi-exclamation-triangle-fill text-warning"></i>
-                      <span className="small text-muted">Esta empresa no tiene propietario asignado.</span>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-warning ms-auto fw-semibold"
-                        onClick={() => navigate("/usuarios")}
-                      >
-                        <i className="bi bi-person-plus me-1"></i>Asignar
-                      </button>
-                    </div>
-                  )}
+                  ...
                 </div>
-              )}
+              )} */}
 
               {/* Botones del form */}
               <div className="d-flex gap-2">
@@ -221,7 +227,7 @@ const EmpresaForm = ({ show, onClose, onSuccess, empresaId, owner }) => {
       </div>
 
       {/* ── Modal confirmación eliminar propietario ── */}
-      {confirmDeleteOwner && owner && (
+      {confirmDeleteOwner && currentOwner && (
         <div className="modal-overlay" style={{ zIndex: 2100 }}
           onClick={(e) => e.target === e.currentTarget && setConfirmDeleteOwner(false)}>
           <div className="modal-card p-4 animate-scaleIn" style={{ maxWidth: 440 }}>
@@ -233,7 +239,7 @@ const EmpresaForm = ({ show, onClose, onSuccess, empresaId, owner }) => {
               <div>
                 <h6 className="fw-bold mb-1">Eliminar propietario permanentemente</h6>
                 <p className="text-muted small mb-0">
-                  ¿Estás seguro de eliminar a <strong>{owner.nombre}</strong> ({owner.email})?
+                  ¿Estás seguro de eliminar a <strong>{currentOwner.nombre}</strong> ({currentOwner.email})?
                 </p>
                 <div className="alert alert-danger d-flex align-items-start gap-2 small rounded-3 mt-2 mb-0 py-2">
                   <i className="bi bi-exclamation-octagon-fill flex-shrink-0 mt-1"></i>
