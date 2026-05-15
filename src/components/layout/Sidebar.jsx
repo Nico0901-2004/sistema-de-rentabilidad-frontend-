@@ -2,40 +2,43 @@ import React, { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { getEmpresaById } from "../../services/empresaService";
+import { marcarEntrada, marcarSalida } from "../../services/horasService"; //
+import { notifySuccess, notifyError } from "../../utils/notify"; //
 
 /* Nav items por rol — solo se muestran los que el usuario puede usar */
 const getNavItems = (rol) => {
   switch (rol) {
     case "admin":
       return [
-        { to: "/admin-dashboard", icon: "bi-grid-fill",      label: "Resumen" },
-        { to: "/empresas",        icon: "bi-building-fill",   label: "Empresas" },
-        { to: "/propietarios",    icon: "bi-people-fill",     label: "Propietarios" },
-        { to: "/perfil",          icon: "bi-person-circle",   label: "Mi Perfil" },
+        { to: "/admin-dashboard", icon: "bi-grid-fill", label: "Resumen" },
+        { to: "/empresas", icon: "bi-building-fill", label: "Empresas" },
+        { to: "/propietarios", icon: "bi-people-fill", label: "Propietarios" },
+        { to: "/perfil", icon: "bi-person-circle", label: "Mi Perfil" },
       ];
     case "propietario":
       return [
-        { to: "/dashboard",      icon: "bi-grid-fill",        label: "Dashboard" },
-        { to: "/empresa-config", icon: "bi-building",         label: "Mi Empresa" },
-        { to: "/usuarios",       icon: "bi-people-fill",      label: "Usuarios" },
-        { to: "/servicios",      icon: "bi-briefcase-fill",   label: "Servicios" },
-        { to: "/proyectos",      icon: "bi-kanban-fill",      label: "Proyectos" },
-        { to: "/perfil",         icon: "bi-person-circle",    label: "Mi Perfil" },
+        { to: "/dashboard", icon: "bi-grid-fill", label: "Dashboard" },
+        { to: "/empresa-config", icon: "bi-building", label: "Mi Empresa" },
+        { to: "/usuarios", icon: "bi-people-fill", label: "Usuarios" },
+        { to: "/servicios", icon: "bi-briefcase-fill", label: "Servicios" },
+        { to: "/proyectos", icon: "bi-kanban-fill", label: "Proyectos" },
+        { to: "/perfil", icon: "bi-person-circle", label: "Mi Perfil" },
       ];
     case "lider":
       return [
-        { to: "/panel-lider", icon: "bi-grid-fill",       label: "Mi Panel" },
-        { to: "/proyectos",   icon: "bi-kanban-fill",     label: "Proyectos" },
-        { to: "/usuarios",    icon: "bi-people-fill",     label: "Empleados" },
-        { to: "/horas",       icon: "bi-clock-history",   label: "Reporte de Horas" },
-        { to: "/perfil",      icon: "bi-person-circle",   label: "Mi Perfil" },
+        { to: "/panel-lider", icon: "bi-grid-fill", label: "Mi Panel" },
+        { to: "/proyectos", icon: "bi-kanban-fill", label: "Proyectos" },
+        { to: "/usuarios", icon: "bi-people-fill", label: "Empleados" },
+        { to: "/horas", icon: "bi-clock-history", label: "Reporte de Horas" },
+        { to: "/perfil", icon: "bi-person-circle", label: "Mi Perfil" },
       ];
     case "empleado":
       return [
-        { to: "/mi-espacio",  icon: "bi-grid-fill",       label: "Mi Espacio" },
-        { to: "/proyectos",   icon: "bi-kanban-fill",     label: "Mis Proyectos" },
-        { to: "/mis-horas",   icon: "bi-clock-history",   label: "Mis Horas" },
-        { to: "/perfil",      icon: "bi-person-circle",   label: "Mi Perfil" },
+        { to: "/mi-espacio", icon: "bi-grid-fill", label: "Mi Espacio" },
+        { to: "/mis-marcajes", icon: "bi-calendar-check",  label: "Mis Marcajes" }, // Nuevo item
+        { to: "/proyectos", icon: "bi-kanban-fill", label: "Mis Proyectos" },
+        { to: "/mis-horas", icon: "bi-clock-history", label: "Mis Horas" },
+        { to: "/perfil", icon: "bi-person-circle", label: "Mi Perfil" },
       ];
     default:
       return [{ to: "/perfil", icon: "bi-person-circle", label: "Mi Perfil" }];
@@ -50,21 +53,64 @@ const Sidebar = () => {
 
   const [empresaNombre, setEmpresaNombre] = useState("");
 
+  // --- ESTADOS PARA HU 23 (MARCAJE) ---
+  const [cargandoMarcaje, setCargandoMarcaje] = useState(false);
+  const [entradaMarcada, setEntradaMarcada] = useState(localStorage.getItem("entrada_marcada") === "true");
+  const [salidaMarcada, setSalidaMarcada] = useState(localStorage.getItem("salida_marcada") === "true");
+
+
   useEffect(() => {
     if (!user?.id_empresa) return;
     getEmpresaById(user.id_empresa)
       .then((r) => { if (r?.success) setEmpresaNombre(r.data.nombre); })
-      .catch(() => {});
+      .catch(() => { });
   }, [user?.id_empresa]);
+
+  // --- LÓGICA DE MARCAJE (SIMULADA) ---
+  const handleMarcajeEntrada = async () => {
+    try {
+      setCargandoMarcaje(true);
+      const res = await marcarEntrada(); // Llama a la simulación en el servicio
+      if (res.success) {
+        notifySuccess(res.message);
+        setEntradaMarcada(true);
+        localStorage.setItem("entrada_marcada", "true"); // Persistencia local
+      }
+    } catch (error) {
+      notifyError("No se pudo registrar la entrada.");
+    } finally {
+      setCargandoMarcaje(false);
+    }
+  };
+
+  const handleMarcajeSalida = async () => {
+    try {
+      setCargandoMarcaje(true);
+      const res = await marcarSalida();
+      if (res.success) {
+        notifySuccess(res.message);
+        setSalidaMarcada(true);
+        localStorage.setItem("salida_marcada", "true");
+
+        // REDIRECCIÓN OBLIGATORIA A REGISTRO DE HORAS
+        // Se limpia el estado de entrada para el día siguiente pero se bloquea la UI
+        setTimeout(() => navigate("/mis-horas?registrar=true"), 1500);
+      }
+    } catch (error) {
+      notifyError(error);
+    } finally {
+      setCargandoMarcaje(false);
+    }
+  };
 
   const navItems = getNavItems(rol);
   const active = (path) => location.pathname === path;
 
   const rolConfig = {
-    admin:    { label: "Administrador", color: "#FCA5A5", bg: "rgba(239,68,68,.25)" },
+    admin: { label: "Administrador", color: "#FCA5A5", bg: "rgba(239,68,68,.25)" },
     propietario: { label: "Propietario", color: "#A5B4FC", bg: "rgba(99,102,241,.25)" },
-    lider:    { label: "Líder",         color: "#FDE68A", bg: "rgba(245,158,11,.25)" },
-    empleado: { label: "Empleado",      color: "#6EE7B7", bg: "rgba(16,185,129,.25)" },
+    lider: { label: "Líder", color: "#FDE68A", bg: "rgba(245,158,11,.25)" },
+    empleado: { label: "Empleado", color: "#6EE7B7", bg: "rgba(16,185,129,.25)" },
   };
   const rc = rolConfig[rol] || rolConfig.empleado;
 
@@ -125,40 +171,38 @@ const Sidebar = () => {
                 boxShadow: isActive ? "0 4px 12px rgba(79,70,229,.3), inset 0 1px 0 rgba(255,255,255,.1)" : "none",
                 border: isActive ? "1px solid rgba(255,255,255,.08)" : "1px solid transparent",
               }}
-              onMouseEnter={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = "rgba(255,255,255,.07)";
-                  e.currentTarget.style.color = "#fff";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = "rgba(199,210,254,.7)";
-                }
-              }}
             >
               <i className={`bi ${item.icon}`} style={{ fontSize: 15, width: 18, textAlign: "center", flexShrink: 0 }}></i>
               <span className="text-truncate">{item.label}</span>
-              {isActive && (
-                <span
-                  className="ms-auto rounded-circle flex-shrink-0"
-                  style={{ width: 6, height: 6, background: "#818CF8" }}
-                ></span>
-              )}
             </Link>
           );
         })}
       </nav>
 
+      {/* Marcaje de Entrada (HU 23) - Solo visible para Líderes y Empleados */}
+      {(rol === "empleado" || rol === "lider") && (
+        <div className="px-3 mb-3">
+          {!entradaMarcada ? (
+            <button className="btn btn-sm w-100 btn-success fw-bold" onClick={handleMarcajeEntrada} disabled={cargandoMarcaje}>
+              <i className="bi bi-box-arrow-in-right me-2"></i> Marcar Entrada
+            </button>
+          ) : !salidaMarcada ? (
+            <button className="btn btn-sm w-100 btn-warning fw-bold text-dark" onClick={handleMarcajeSalida} disabled={cargandoMarcaje}>
+              <i className="bi bi-box-arrow-right me-2"></i> Marcar Salida
+            </button>
+          ) : (
+            <div className="alert alert-info py-2 small mb-0 border-0 text-center">
+              <i className="bi bi-clock-history me-2"></i> Jornada Finalizada
+            </div>
+          )}
+        </div>
+      )}
       {/* User card + logout */}
       <div className="p-3" style={{ borderTop: "1px solid rgba(255,255,255,.07)" }}>
         <div
           className="d-flex align-items-center gap-2 rounded-3 p-2 mb-2"
           style={{ background: "rgba(255,255,255,.05)", cursor: "pointer", transition: "background .2s" }}
           onClick={() => navigate("/perfil")}
-          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.1)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,.05)"; }}
         >
           <div
             className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
@@ -180,8 +224,6 @@ const Sidebar = () => {
           className="btn btn-sm w-100 d-flex align-items-center justify-content-center gap-2 rounded-3"
           style={{ background: "rgba(239,68,68,.15)", color: "#FCA5A5", fontSize: 12, fontWeight: 600, border: "1px solid rgba(239,68,68,.2)", transition: "all .2s" }}
           onClick={() => { logout(); navigate("/login"); }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,.3)"; e.currentTarget.style.color = "#fff"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(239,68,68,.15)"; e.currentTarget.style.color = "#FCA5A5"; }}
         >
           <i className="bi bi-box-arrow-left"></i>
           Cerrar sesión
