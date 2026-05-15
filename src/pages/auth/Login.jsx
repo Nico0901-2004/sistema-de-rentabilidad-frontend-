@@ -169,7 +169,14 @@ const Login = () => {
       const destinos = { admin: "/admin-dashboard", propietario: "/dashboard", lider: "/panel-lider", empleado: "/mi-espacio" };
       navigate(destinos[data.user?.rol] || "/dashboard");
     } catch (err) {
-      setError(err.response?.data?.message || "Credenciales incorrectas.");
+      const status = err.response?.status;
+      if (status === 401 || status === 403) {
+        setError(err.response?.data?.message || "Credenciales incorrectas.");
+      } else if (!err.response || status >= 500) {
+        setError("Error de servidor");
+      } else {
+        setError(err.response?.data?.message || "Error de servidor");
+      }
     } finally {
       setLoading(false);
     }
