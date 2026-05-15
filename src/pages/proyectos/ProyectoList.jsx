@@ -190,7 +190,18 @@ const PropietarioView = () => {
         notifyError(res?.message || "Error al eliminar el proyecto.");
       }
     } catch (err) {
-      notifyError(err.response?.data?.message || "Error de conexión con el servidor.");
+      const backendMessage = err.response?.data?.message;
+
+      // Backend legacy: si el proyecto ya estaba desactivado, simulamos eliminación en UI.
+      if (backendMessage === "El proyecto ya está desactivado") {
+        setProyectos((prev) =>
+          prev.filter((p) => p.id_proyecto !== confirm.proyecto.id_proyecto)
+        );
+        notifySuccess("Proyecto eliminado correctamente.");
+        return;
+      }
+
+      notifyError(backendMessage || "Error de conexión con el servidor.");
     } finally {
       setLoading(false);
       setConfirm(null);
@@ -397,7 +408,7 @@ const PropietarioView = () => {
         <ConfirmModal
           danger
           title="Eliminar proyecto"
-          message={`¿Estás seguro de eliminar el proyecto "${confirm.proyecto.nombre}"? Se ocultará de la lista, pero quedará desactivado en el sistema.`}
+          message={`¿Estás seguro de eliminar el proyecto "${confirm.proyecto.nombre}"?`}
           confirmLabel="Sí, eliminar"
           onConfirm={handleConfirm}
           onCancel={() => setConfirm(null)}
