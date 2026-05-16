@@ -3,6 +3,25 @@ import Layout from "../../components/layout/Layout";
 import { getMisMarcajes } from "../../services/horasService";
 import { notifyError } from "../../utils/notify";
 
+const formatHoraLocal = (value) => {
+  if (!value) return "--:--:--";
+
+  const date = new Date(value);
+  if (!Number.isNaN(date.getTime())) {
+    return date.toLocaleTimeString("es-PE", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+      timeZone: "America/Lima",
+    });
+  }
+
+  const raw = String(value);
+  const hhmmss = raw.match(/\b\d{2}:\d{2}:\d{2}\b/);
+  return hhmmss ? hhmmss[0] : raw;
+};
+
 const MarcajesList = () => {
   const [marcajes, setMarcajes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -67,7 +86,7 @@ const MarcajesList = () => {
                   ))
                 ) : marcajes.length > 0 ? (
                   marcajes.map((m) => (
-                    <tr key={m.id} className="animate-fadeIn">
+                    <tr key={m.id_marcaje} className="animate-fadeIn">
                       <td className="ps-4 fw-semibold text-dark">
                         {new Date(m.fecha).toLocaleDateString("es-PE", { 
                           weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
@@ -75,12 +94,12 @@ const MarcajesList = () => {
                       </td>
                       <td>
                         <span className="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-3">
-                          <i className="bi bi-box-arrow-in-right me-2"></i>{m.entrada}
+                          <i className="bi bi-box-arrow-in-right me-2"></i>{formatHoraLocal(m.hora_entrada)}
                         </span>
                       </td>
                       <td>
                         <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-2 rounded-3">
-                          <i className="bi bi-box-arrow-right me-2"></i>{m.salida || "--:--:--"}
+                          <i className="bi bi-box-arrow-right me-2"></i>{formatHoraLocal(m.hora_salida)}
                         </span>
                       </td>
                       <td className="text-center">

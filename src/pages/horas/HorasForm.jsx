@@ -5,23 +5,25 @@ import { notifySuccess } from "../../utils/notify";
 
 const today = () => new Date().toISOString().split("T")[0];
 
-const HorasForm = ({ proyectoPreseleccionado, onSaved, onCancel }) => {
+const HorasForm = ({ proyectoPreseleccionado, onSaved, onCancel, forceRequired = false }) => {
   const [proyectos, setProyectos] = useState([]);
   const [form, setForm] = useState({
     id_proyecto: proyectoPreseleccionado || "",
-    fecha:       today(),
-    horas_base:  1,   // select 1-8
-    horas_extra: 0,   // input 0-10 (opcional)
+    fecha: today(),
+    horas_base: 1,
+    horas_extra: 0,
     descripcion: "",
   });
-  const [error, setError]     = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const isProjectLocked = Boolean(proyectoPreseleccionado);
 
   useEffect(() => {
     getProyectosDisponibles()
-      .then((res) => { if (res?.success) setProyectos(res.data); })
+      .then((res) => {
+        if (res?.success) setProyectos(res.data);
+      })
       .catch(() => {});
   }, []);
 
@@ -49,8 +51,8 @@ const HorasForm = ({ proyectoPreseleccionado, onSaved, onCancel }) => {
     try {
       const res = await createHora({
         id_proyecto: Number(form.id_proyecto),
-        fecha:       form.fecha,
-        horas:       totalHoras,
+        fecha: form.fecha,
+        horas: totalHoras,
         descripcion: form.descripcion || null,
       });
       if (res?.success) {
@@ -67,17 +69,26 @@ const HorasForm = ({ proyectoPreseleccionado, onSaved, onCancel }) => {
   };
 
   return (
-    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onCancel()}>
+    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && !forceRequired && onCancel()}>
       <div className="modal-card p-4 animate-scaleIn">
         <div className="d-flex justify-content-between align-items-center mb-4">
           <div>
             <h5 className="fw-bold mb-0">Registrar Horas</h5>
             <p className="text-muted small mb-0">Ingresa las horas trabajadas en el proyecto</p>
           </div>
-          <button className="btn btn-sm btn-light rounded-circle p-1 lh-1" onClick={onCancel}>
-            <i className="bi bi-x-lg"></i>
-          </button>
+          {!forceRequired && (
+            <button className="btn btn-sm btn-light rounded-circle p-1 lh-1" onClick={onCancel}>
+              <i className="bi bi-x-lg"></i>
+            </button>
+          )}
         </div>
+
+        {forceRequired && (
+          <div className="alert alert-warning d-flex align-items-center py-2 small rounded-3 mb-3">
+            <i className="bi bi-exclamation-triangle-fill me-2"></i>
+            Este registro es obligatorio para completar tu marcaje de salida.
+          </div>
+        )}
 
         {error && (
           <div className="alert alert-danger d-flex align-items-center py-2 small rounded-3 mb-3">
@@ -86,7 +97,6 @@ const HorasForm = ({ proyectoPreseleccionado, onSaved, onCancel }) => {
         )}
 
         <form onSubmit={handleSubmit}>
-          {/* Proyecto */}
           <div className="mb-3">
             <label className="form-label fw-semibold small">Proyecto *</label>
             <select
@@ -109,7 +119,6 @@ const HorasForm = ({ proyectoPreseleccionado, onSaved, onCancel }) => {
             )}
           </div>
 
-          {/* Fecha */}
           <div className="mb-3">
             <label className="form-label fw-semibold small">Fecha *</label>
             <input
@@ -123,7 +132,6 @@ const HorasForm = ({ proyectoPreseleccionado, onSaved, onCancel }) => {
             />
           </div>
 
-          {/* Horas base + extra */}
           <div className="row g-3 mb-3">
             <div className="col-12 col-sm-6">
               <label className="form-label fw-semibold small">
@@ -160,7 +168,6 @@ const HorasForm = ({ proyectoPreseleccionado, onSaved, onCancel }) => {
             </div>
           </div>
 
-          {/* Total badge */}
           <div className="mb-3 p-2 rounded-3 d-flex align-items-center gap-2"
             style={{ background: "rgba(79,70,229,.06)" }}>
             <i className="bi bi-clock-fill" style={{ color: "var(--primary)" }}></i>
@@ -172,7 +179,6 @@ const HorasForm = ({ proyectoPreseleccionado, onSaved, onCancel }) => {
             </span>
           </div>
 
-          {/* Descripción */}
           <div className="mb-4">
             <label className="form-label fw-semibold small">Descripción de la tarea</label>
             <textarea
@@ -186,9 +192,11 @@ const HorasForm = ({ proyectoPreseleccionado, onSaved, onCancel }) => {
           </div>
 
           <div className="d-flex gap-2">
-            <button type="button" className="btn btn-light flex-fill fw-semibold" onClick={onCancel}>
-              Cancelar
-            </button>
+            {!forceRequired && (
+              <button type="button" className="btn btn-light flex-fill fw-semibold" onClick={onCancel}>
+                Cancelar
+              </button>
+            )}
             <button type="submit" className="btn btn-primary flex-fill" disabled={loading}>
               {loading
                 ? <><span className="spinner-border spinner-border-sm me-2"></span>Guardando...</>

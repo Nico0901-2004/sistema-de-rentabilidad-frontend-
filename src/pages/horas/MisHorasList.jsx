@@ -1,6 +1,9 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import Layout from "../../components/layout/Layout";
+import HorasForm from "./HorasForm";
 import { getHoras } from "../../services/horasService";
+import { notifyInfo } from "../../utils/notify";
 
 const getHorasData = (response) => {
   if (Array.isArray(response)) return response;
@@ -12,9 +15,16 @@ const getRegistroId = (registro, index) =>
   registro.id ?? registro.id_registro ?? index;
 
 const MisHorasList = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [horas, setHoras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showForm, setShowForm] = useState(false);
+
+  const registroObligatorio = useMemo(
+    () => searchParams.get("registrar") === "true" && searchParams.get("obligatorio") === "1",
+    [searchParams]
+  );
 
   const fetchHoras = useCallback(async () => {
     try {
@@ -35,6 +45,33 @@ const MisHorasList = () => {
     fetchHoras();
   }, [fetchHoras]);
 
+  useEffect(() => {
+    if (searchParams.get("registrar") === "true") {
+      setShowForm(true);
+    }
+  }, [searchParams]);
+
+  const handleSaved = async () => {
+    setShowForm(false);
+    await fetchHoras();
+
+    if (searchParams.get("registrar") === "true") {
+      setSearchParams({});
+    }
+  };
+
+  const handleCancel = () => {
+    if (registroObligatorio) {
+      notifyInfo("Debes registrar tus horas para completar el proceso de salida.");
+      return;
+    }
+
+    setShowForm(false);
+    if (searchParams.get("registrar") === "true") {
+      setSearchParams({});
+    }
+  };
+
   return (
     <Layout>
       <div className="animate-fadeInUp">
@@ -44,6 +81,13 @@ const MisHorasList = () => {
             <p className="text-muted small mb-0">Horas trabajadas registradas por proyecto y fase</p>
           </div>
         </div>
+
+        {registroObligatorio && (
+          <div className="alert alert-warning d-flex align-items-center small rounded-3">
+            <i className="bi bi-exclamation-triangle-fill me-2"></i>
+            Debes registrar tus horas para completar el flujo de salida.
+          </div>
+        )}
 
         {error && (
           <div className="alert alert-danger d-flex align-items-center small rounded-3">
@@ -116,6 +160,15 @@ const MisHorasList = () => {
           </div>
         </div>
       </div>
+
+      {showForm && (
+        <HorasForm
+          proyectoPreseleccionado={null}
+          onSaved={handleSaved}
+          onCancel={handleCancel}
+          forceRequired={registroObligatorio}
+        />
+      )}
     </Layout>
   );
 };
