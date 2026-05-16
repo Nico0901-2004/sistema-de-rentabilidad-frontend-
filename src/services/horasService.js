@@ -5,11 +5,12 @@ export const getHorasByLider = async () => {
   return response.data;
 };
 
-export const getMisHoras = async () => {
-  const response = await api.get("/horas/mis-horas");
-  // Aquí el backend eventualmente enviará: { ..., proyecto_nombre: 'X', fase_nombre: 'Diseño' }
+export const getHoras = async () => {
+  const response = await api.get("/horas");
   return response.data;
 };
+
+export const getMisHoras = getHoras;
 
 export const createHora = async (data) => {
   const response = await api.post("/horas", data);
