@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Layout from "../../components/layout/Layout";
 import ProyectoForm from "./ProyectoForm";
 import HorasForm from "../horas/HorasForm";
@@ -8,7 +8,7 @@ import { useAuth } from "../../context/AuthContext";
 import { getHoras } from "../../services/horasService";
 import { 
   getProyectos, getMisProyectos, getProyectoById, eliminarProyecto, 
-  finalizarProyecto // Asegúrate de que esté importado
+  finalizarProyecto, getHorasResumenProyecto // Asegúrate de que esté importado
 } from "../../services/proyectoService";
 import { notifySuccess, notifyError } from "../../utils/notify"; // Importación necesaria para feedback
 
@@ -17,6 +17,61 @@ const getServicioNombre = (proyecto) => proyecto.nombre_servicio || proyecto.ser
 const getLiderNombre = (proyecto) => proyecto.nombre_lider || proyecto.lider_nombre || "—";
 const isProyectoActivo = (proyecto) => proyecto.is_active !== false;
 const formatProyectoDate = (date) => date ? date.slice(0, 10) : "---";
+const formatShortDate = (date) => date ? String(date).slice(0, 10) : "—";
+const getHorasResumenData = (response) => {
+  if (Array.isArray(response)) return response;
+  if (response?.success && Array.isArray(response.data)) return response.data;
+  return [];
+};
+const getHoraFaseId = (registro) => registro.id_fase ?? registro.fase_id ?? null;
+const getHoraFaseNombre = (registro) => registro.fase_nombre ?? registro.nombre_fase ?? registro.fase ?? "";
+const getHoraFecha = (registro) => registro.fecha ?? registro.fecha_registro ?? registro.created_at ?? "";
+const getHoraProyectoId = (registro, fallbackId) => Number(registro.id_proyecto ?? registro.proyecto_id ?? fallbackId);
+
+const normalizeHorasResumen = (response, proyecto) =>
+  getHorasResumenData(response).map((registro, index) => ({
+    ...registro,
+    id_resumen: registro.id_resumen ?? registro.id_registro ?? `${proyecto.id_proyecto}-${index}`,
+    id_proyecto: getHoraProyectoId(registro, proyecto.id_proyecto),
+    proyecto_nombre: registro.proyecto_nombre ?? registro.nombre_proyecto ?? proyecto.nombre,
+    id_fase: getHoraFaseId(registro),
+    fase_nombre: getHoraFaseNombre(registro),
+    fecha: getHoraFecha(registro),
+    total_horas: Number(registro.total_horas ?? registro.horas ?? 0),
+  }));
+
+const getTotalHorasResumen = (resumen = []) =>
+  resumen.reduce((acc, registro) => acc + Number(registro.total_horas || 0), 0);
+
+const groupHorasByFase = (resumen = []) => {
+  const map = new Map();
+
+  resumen.forEach((registro) => {
+    const faseId = registro.id_fase;
+    const faseNombre = registro.fase_nombre;
+    if (!faseId && !faseNombre) return;
+
+    const key = String(faseId ?? faseNombre);
+    const actual = map.get(key) || {
+      id_fase: faseId,
+      fase_nombre: faseNombre || `Fase #${faseId}`,
+      total_horas: 0,
+    };
+
+    actual.total_horas += Number(registro.total_horas || 0);
+    map.set(key, actual);
+  });
+
+  return Array.from(map.values()).sort((a, b) =>
+    String(a.fase_nombre).localeCompare(String(b.fase_nombre))
+  );
+};
+
+const isDateInRange = (date, desde, hasta) => {
+  if (!date) return false;
+  const normalized = String(date).slice(0, 10);
+  return (!desde || normalized >= desde) && (!hasta || normalized <= hasta);
+};
 
 /* ── Confirm modal ───────────────────────────── */
 const ConfirmModal = ({ title, message, confirmLabel, danger, onConfirm, onCancel }) => (
@@ -44,10 +99,13 @@ const ConfirmModal = ({ title, message, confirmLabel, danger, onConfirm, onCance
 );
 
 /* ── Detalle de proyecto ─────────────────────── */
-const ProyectoDetailModal = ({ proyecto, onClose }) => {
+const ProyectoDetailModal = ({ proyecto, onClose, horasResumen = [], horasLoading = false, horasError = "" }) => {
   if (!proyecto) return null;
 
   const empleados = Array.isArray(proyecto.empleados) ? proyecto.empleados : [];
+  const totalHoras = getTotalHorasResumen(horasResumen);
+  const horasPorFase = groupHorasByFase(horasResumen);
+  const resumenSinFase = horasResumen.length > 0 && horasPorFase.length === 0;
 
   return (
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -74,6 +132,9 @@ const ProyectoDetailModal = ({ proyecto, onClose }) => {
                 <div className="d-flex flex-wrap gap-2">
                   <span className="badge badge-role badge-active">
                     {isProyectoActivo(proyecto) ? "Activo" : "Inactivo"}
+                  </span>
+                  <span className="badge badge-role badge-lider">
+                    Horas: {horasLoading ? "..." : `${totalHoras.toFixed(1)}h`}
                   </span>
                   {proyecto.presupuesto && (
                     <span className="badge badge-role badge-propietario">
@@ -115,6 +176,51 @@ const ProyectoDetailModal = ({ proyecto, onClose }) => {
               </div>
             </div>
           </div>
+
+          <div className="mt-3 p-3 rounded-4 bg-light">
+            <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
+              <h6 className="fw-bold small mb-0">
+                <i className="bi bi-clock-history me-2" style={{ color: "var(--primary)" }}></i>
+                Horas por fase
+              </h6>
+              <span className="fw-bold" style={{ color: "var(--primary)" }}>
+                {horasLoading ? "..." : `${totalHoras.toFixed(1)}h`}
+              </span>
+            </div>
+
+            {horasError ? (
+              <p className="text-muted small mb-0">{horasError}</p>
+            ) : horasLoading ? (
+              <div className="skeleton rounded" style={{ height: 24, width: "60%" }}></div>
+            ) : horasPorFase.length > 0 ? (
+              <div className="table-responsive">
+                <table className="table table-sm mb-0">
+                  <thead>
+                    <tr>
+                      <th className="text-muted small">Fase</th>
+                      <th className="text-end text-muted small">Total horas</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {horasPorFase.map((fase) => (
+                      <tr key={fase.id_fase ?? fase.fase_nombre}>
+                        <td className="fw-semibold small">{fase.fase_nombre}</td>
+                        <td className="text-end fw-bold small" style={{ color: "var(--primary)" }}>
+                          {Number(fase.total_horas || 0).toFixed(1)}h
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : resumenSinFase ? (
+              <p className="text-muted small mb-0">
+                El endpoint devuelve horas del proyecto, pero no incluye fase para mostrar el desglose.
+              </p>
+            ) : (
+              <p className="text-muted small mb-0">Sin horas registradas para este proyecto.</p>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -123,7 +229,7 @@ const ProyectoDetailModal = ({ proyecto, onClose }) => {
 
 const ProjectContentModal = ({ children, onClose }) => (
   <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-    <div className="modal-card p-4 animate-scaleIn" style={{ maxWidth: 1120 }}>
+    <div className="modal-card p-4 animate-scaleIn" style={{ maxWidth: 1120, maxHeight: "90vh", overflowY: "auto" }}>
       {children}
     </div>
   </div>
@@ -220,13 +326,21 @@ const PropietarioView = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [search, setSearch] = useState("");
+  const [filterProyecto, setFilterProyecto] = useState("");
+  const [filterFase, setFilterFase] = useState("");
+  const [fechaDesde, setFechaDesde] = useState("");
+  const [fechaHasta, setFechaHasta] = useState("");
   const [selected, setSelected] = useState(null);
   const [contentModal, setContentModal] = useState(null);
   const [confirm, setConfirm] = useState(null);
+  const [horasResumenByProyecto, setHorasResumenByProyecto] = useState({});
+  const [loadingHoras, setLoadingHoras] = useState(false);
+  const [horasError, setHorasError] = useState("");
 
   const fetch = useCallback(async () => {
     try {
       setLoading(true);
+      setHorasError("");
       const res = await getProyectos();
       if (res.success) {
         const proyectosConDetalle = await Promise.all(
@@ -241,11 +355,31 @@ const PropietarioView = () => {
         );
 
         setProyectos(proyectosConDetalle);
-      } else setError("No se pudo cargar la lista de proyectos.");
+        setLoading(false);
+        setLoadingHoras(true);
+        const resumenEntries = await Promise.all(
+          proyectosConDetalle.map(async (proyecto) => {
+            try {
+              const resumen = await getHorasResumenProyecto(proyecto.id_proyecto);
+              return [proyecto.id_proyecto, normalizeHorasResumen(resumen, proyecto)];
+            } catch {
+              return [proyecto.id_proyecto, []];
+            }
+          })
+        );
+        setHorasResumenByProyecto(Object.fromEntries(resumenEntries));
+        setHorasError("");
+        setLoadingHoras(false);
+      } else {
+        setError("No se pudo cargar la lista de proyectos.");
+        setLoadingHoras(false);
+      }
     } catch {
       setError("Error al conectar con el servidor.");
+      setHorasResumenByProyecto({});
     } finally {
       setLoading(false);
+      setLoadingHoras(false);
     }
   }, []);
 
@@ -292,11 +426,73 @@ const PropietarioView = () => {
     }
   };
 
-  const filtered = proyectos.filter((p) =>
-    p.nombre.toLowerCase().includes(search.toLowerCase()) ||
-    (p.descripcion || "").toLowerCase().includes(search.toLowerCase()) ||
-    getServicioNombre(p).toLowerCase().includes(search.toLowerCase()) ||
-    getLiderNombre(p).toLowerCase().includes(search.toLowerCase())
+  const resumenRows = useMemo(
+    () => Object.values(horasResumenByProyecto).flat(),
+    [horasResumenByProyecto]
+  );
+
+  const fechasDisponibles = resumenRows.some((registro) => Boolean(registro.fecha));
+
+  const fasesDisponibles = useMemo(() => {
+    const fases = new Map();
+
+    resumenRows.forEach((registro) => {
+      const faseId = registro.id_fase;
+      const faseNombre = registro.fase_nombre;
+      if (!faseId && !faseNombre) return;
+      const key = String(faseId ?? faseNombre);
+      if (!fases.has(key)) fases.set(key, faseNombre || `Fase #${faseId}`);
+    });
+
+    return Array.from(fases.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+  }, [resumenRows]);
+
+  const clearHourFilters = () => {
+    setSearch("");
+    setFilterProyecto("");
+    setFilterFase("");
+    setFechaDesde("");
+    setFechaHasta("");
+  };
+
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+
+    return proyectos.filter((p) => {
+      const resumen = horasResumenByProyecto[p.id_proyecto] || [];
+      const resumenByDate = fechaDesde || fechaHasta
+        ? resumen.filter((registro) => isDateInRange(registro.fecha, fechaDesde, fechaHasta))
+        : resumen;
+
+      const matchSearch = !term ||
+        p.nombre.toLowerCase().includes(term) ||
+        (p.descripcion || "").toLowerCase().includes(term) ||
+        getServicioNombre(p).toLowerCase().includes(term) ||
+        getLiderNombre(p).toLowerCase().includes(term);
+      const matchProyecto = !filterProyecto || String(p.id_proyecto) === filterProyecto;
+      const matchFase = !filterFase || resumenByDate.some((registro) =>
+        String(registro.id_fase ?? registro.fase_nombre) === filterFase
+      );
+      const matchFecha = !(fechaDesde || fechaHasta) || resumenByDate.length > 0;
+
+      return matchSearch && matchProyecto && matchFase && matchFecha;
+    });
+  }, [proyectos, horasResumenByProyecto, search, filterProyecto, filterFase, fechaDesde, fechaHasta]);
+
+  const getResumenVisible = useCallback((proyectoId) => {
+    const resumen = horasResumenByProyecto[proyectoId] || [];
+    return resumen.filter((registro) => {
+      const matchFase = !filterFase ||
+        String(registro.id_fase ?? registro.fase_nombre) === filterFase;
+      const matchFecha = !(fechaDesde || fechaHasta) ||
+        isDateInRange(registro.fecha, fechaDesde, fechaHasta);
+      return matchFase && matchFecha;
+    });
+  }, [horasResumenByProyecto, filterFase, fechaDesde, fechaHasta]);
+
+  const totalHorasFiltradas = filtered.reduce(
+    (acc, proyecto) => acc + getTotalHorasResumen(getResumenVisible(proyecto.id_proyecto)),
+    0
   );
 
   return (
@@ -318,6 +514,7 @@ const PropietarioView = () => {
         <div className="row g-3 mb-4 stagger">
           {[
             { label: "Total proyectos", value: proyectos.length, icon: "bi-kanban-fill", color: "var(--primary)", bg: "rgba(79,70,229,.1)" },
+            { label: "Horas registradas", value: loadingHoras ? "..." : `${totalHorasFiltradas.toFixed(1)}h`, icon: "bi-clock-history", color: "var(--accent)", bg: "rgba(6,182,212,.1)" },
             // TEMP: oculto para no mostrar estado en frontend
             // { label: "Activos", value: proyectos.filter(isProyectoActivo).length, icon: "bi-check-circle-fill", color: "var(--success)", bg: "rgba(16,185,129,.1)" },
             // { label: "Inactivos", value: proyectos.filter(p => !isProyectoActivo(p)).length, icon: "bi-x-circle-fill", color: "var(--danger)", bg: "rgba(239,68,68,.1)" },
@@ -348,13 +545,62 @@ const PropietarioView = () => {
           />
         )}
 
-        <div className="mb-3">
-          <div className="input-group" style={{ maxWidth: 360 }}>
-            <span className="input-group-text bg-white border-end-0">
-              <i className="bi bi-search text-muted"></i>
-            </span>
-            <input type="text" className="form-control border-start-0 ps-0"
-              placeholder="Buscar proyecto..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        <div className="card border-0 rounded-4 mb-3" style={{ boxShadow: "var(--shadow-sm)" }}>
+          <div className="card-body p-3">
+            <div className="row g-2 align-items-end">
+              <div className="col-12 col-xl-3">
+                <label className="form-label small fw-bold text-muted">Buscar</label>
+                <div className="input-group">
+                  <span className="input-group-text bg-white border-end-0">
+                    <i className="bi bi-search text-muted"></i>
+                  </span>
+                  <input type="text" className="form-control border-start-0 ps-0"
+                    placeholder="Proyecto, servicio o líder..." value={search} onChange={(e) => setSearch(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="col-12 col-sm-6 col-xl-3">
+                <label className="form-label small fw-bold text-muted">Proyecto</label>
+                <select className="form-select" value={filterProyecto} onChange={(e) => setFilterProyecto(e.target.value)}>
+                  <option value="">Todos los proyectos</option>
+                  {proyectos.map((p) => (
+                    <option key={p.id_proyecto} value={String(p.id_proyecto)}>{p.nombre}</option>
+                  ))}
+                </select>
+              </div>
+
+              {fasesDisponibles.length > 0 && (
+                <div className="col-12 col-sm-6 col-xl-2">
+                  <label className="form-label small fw-bold text-muted">Fase</label>
+                  <select className="form-select" value={filterFase} onChange={(e) => setFilterFase(e.target.value)}>
+                    <option value="">Todas las fases</option>
+                    {fasesDisponibles.map(([id, nombre]) => (
+                      <option key={id} value={id}>{nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {fechasDisponibles && (
+                <>
+                  <div className="col-6 col-xl-1">
+                    <label className="form-label small fw-bold text-muted">Desde</label>
+                    <input type="date" className="form-control" value={fechaDesde} onChange={(e) => setFechaDesde(e.target.value)} />
+                  </div>
+                  <div className="col-6 col-xl-1">
+                    <label className="form-label small fw-bold text-muted">Hasta</label>
+                    <input type="date" className="form-control" value={fechaHasta} onChange={(e) => setFechaHasta(e.target.value)} />
+                  </div>
+                </>
+              )}
+
+              <div className="col-12 col-sm-6 col-xl-2">
+                <button className="btn btn-light w-100 fw-semibold" onClick={clearHourFilters}>
+                  <i className="bi bi-x-circle me-2"></i>
+                  Limpiar
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -366,27 +612,31 @@ const PropietarioView = () => {
 
         <div className="card border-0 rounded-4 overflow-hidden" style={{ boxShadow: "var(--shadow-md)" }}>
           <div className="table-responsive">
-            <table className="table table-modern mb-0" style={{ width: "100%", tableLayout: "fixed" }}>
+            <table className="table table-modern mb-0 align-middle" style={{ width: "100%", tableLayout: "fixed" }}>
               <thead>
                 <tr>
                   <th style={{ width: "3%" }}></th>
-                  <th style={{ width: "27%" }}>Proyecto</th>
+                  <th style={{ width: "26%" }}>Proyecto</th>
                   <th style={{ width: "14%" }}>Servicio</th>
                   <th style={{ width: "14%" }}>Líder</th>
-                  <th style={{ width: "18%" }}>Fechas</th>
-                  <th className="text-end" style={{ width: "15%" }}>Acciones</th>
+                  <th className="text-center" style={{ width: "10%" }}>Horas</th>
+                  <th className="text-center" style={{ width: "21%" }}>Fechas</th>
+                  <th className="text-end" style={{ width: "12%" }}>Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   Array.from({ length: 4 }).map((_, i) => (
-                    <tr key={i}>{Array.from({ length: 6 }).map((_, j) => (
+                    <tr key={i}>{Array.from({ length: 7 }).map((_, j) => (
                       <td key={j}><div className="skeleton rounded" style={{ height: 20, width: "80%" }}></div></td>
                     ))}</tr>
                   ))
                 ) : filtered.length > 0 ? (
                   filtered.map((p) => {
                     const active = isProyectoActivo(p);
+                    const resumenVisible = getResumenVisible(p.id_proyecto);
+                    const totalHorasProyecto = getTotalHorasResumen(resumenVisible);
+                    const fasesConHoras = groupHorasByFase(resumenVisible);
                     return (
                       <tr key={p.id_proyecto} className="animate-fadeIn" style={{ cursor: "pointer" }} onClick={() => setSelected(p)}>
                         <td><i className="bi bi-chevron-right" style={{ color: "var(--primary)", fontSize: 12 }}></i></td>
@@ -420,15 +670,36 @@ const PropietarioView = () => {
                             </span>
                           </span>
                         </td>
+                        <td className="text-center">
+                          <span className="fw-bold" style={{ color: "var(--primary)" }}>
+                            {loadingHoras ? "..." : `${totalHorasProyecto.toFixed(1)}h`}
+                          </span>
+                          {fasesConHoras.length > 0 && (
+                            <span className="d-block text-muted" style={{ fontSize: 11 }}>
+                              {fasesConHoras.length} fase{fasesConHoras.length !== 1 ? "s" : ""}
+                            </span>
+                          )}
+                        </td>
                         <td className="text-muted small">
-                          <div className="d-grid gap-1" style={{ lineHeight: 1.25 }}>
-                            <span><strong>Inicio:</strong> {formatProyectoDate(p.fecha_inicio)}</span>
-                            <span><strong>Estimado:</strong> {formatProyectoDate(p.fecha_fin_estimada)}</span>
-                            <span><strong>Real:</strong> {formatProyectoDate(p.fecha_fin_real)}</span>
+                          <div className="d-grid gap-1 mx-auto" style={{ lineHeight: 1.15 }}>
+                            <div className="d-flex align-items-center gap-1">
+                              <span className="fw-semibold text-muted" style={{ fontSize: 10, width: 46 }}>Inicio</span>
+                              <span className="text-nowrap">{formatShortDate(p.fecha_inicio)}</span>
+                            </div>
+                            <div className="d-flex align-items-center gap-1">
+                              <span className="fw-semibold text-muted" style={{ fontSize: 10, width: 46 }}>Fin est.</span>
+                              <span className="text-nowrap">{formatShortDate(p.fecha_fin_estimada)}</span>
+                            </div>
+                            <div className="d-flex align-items-center gap-1">
+                              <span className="fw-semibold text-muted" style={{ fontSize: 10, width: 46 }}>Fin real</span>
+                              <span className={`text-nowrap ${p.fecha_fin_real ? "text-success fw-semibold" : ""}`}>
+                                {formatShortDate(p.fecha_fin_real)}
+                              </span>
+                            </div>
                           </div>
                         </td>
                         <td className="text-end" onClick={(e) => e.stopPropagation()}>
-                          <div className="d-grid gap-1 ms-auto" style={{ gridTemplateColumns: "repeat(2, 32px)", width: 68 }}>
+                          <div className="d-grid gap-1 ms-auto" style={{ gridTemplateColumns: "repeat(2, 30px)", width: 64 }}>
                             <button className="btn btn-sm btn-primary shadow-sm" title="Ver fases" onClick={() => setContentModal({ type: "fases", proyecto: p })}>
                               <i className="bi bi-layers"></i>
                             </button>
@@ -448,7 +719,7 @@ const PropietarioView = () => {
                   })
                 ) : (
                   <tr>
-                    <td colSpan="6">
+                    <td colSpan="7">
                       <div className="empty-state">
                         <i className="bi bi-kanban"></i>
                         <h6>Sin proyectos</h6>
@@ -463,7 +734,13 @@ const PropietarioView = () => {
         </div>
       </div>
 
-      <ProyectoDetailModal proyecto={selected} onClose={() => setSelected(null)} />
+      <ProyectoDetailModal
+        proyecto={selected}
+        horasResumen={selected ? getResumenVisible(selected.id_proyecto) : []}
+        horasLoading={loadingHoras}
+        horasError={horasError}
+        onClose={() => setSelected(null)}
+      />
 
       {contentModal && (
         <ProjectContentModal onClose={() => setContentModal(null)}>
@@ -471,6 +748,7 @@ const PropietarioView = () => {
             <FasesLists
               embedded
               proyectoId={contentModal.proyecto.id_proyecto}
+              horasResumen={horasResumenByProyecto[contentModal.proyecto.id_proyecto] || []}
               onClose={() => setContentModal(null)}
             />
           ) : (

@@ -6,9 +6,16 @@ import { getProyectoById } from "../../services/proyectoService";
 import { getFasesByProyecto } from "../../services/faseService";
 import FasesForm from "./FasesForm";
 
-const normalizeFases = (data) => (Array.isArray(data) ? data : []);
+const normalizeFases = (data) =>
+  (Array.isArray(data) ? data : []).map((fase) => ({
+    ...fase,
+    horas_estimadas: Number(fase.horas_estimadas ?? 0),
+    horas_trabajadas: Number(fase.horas_trabajadas ?? fase.horas_registradas ?? 0),
+  }));
+const getHorasFaseId = (registro) => registro.id_fase ?? registro.fase_id ?? null;
+const getHorasFaseNombre = (registro) => registro.fase_nombre ?? registro.nombre_fase ?? registro.fase ?? "";
 
-const FasesLists = ({ proyectoId: proyectoIdProp, embedded = false, onClose }) => {
+const FasesLists = ({ proyectoId: proyectoIdProp, embedded = false, onClose, horasResumen = [] }) => {
   const params = useParams();
   const { user } = useAuth();
   const proyectoId = proyectoIdProp || params.proyectoId || params.id;
@@ -48,6 +55,11 @@ const FasesLists = ({ proyectoId: proyectoIdProp, embedded = false, onClose }) =
   }, [fetchFases]);
 
   useEffect(() => {
+    setSearch("");
+    setOrderBy("fecha");
+  }, [proyectoId]);
+
+  useEffect(() => {
     if (!proyectoId) return;
     getProyectoById(proyectoId)
       .then((res) => {
@@ -56,12 +68,75 @@ const FasesLists = ({ proyectoId: proyectoIdProp, embedded = false, onClose }) =
       .catch(() => {});
   }, [proyectoId]);
 
+  const horasRegistradasByFase = useMemo(() => {
+    const map = new Map();
+
+    horasResumen.forEach((registro) => {
+      const faseId = getHorasFaseId(registro);
+      const faseNombre = getHorasFaseNombre(registro);
+      if (!faseId && !faseNombre) return;
+
+      const key = String(faseId ?? faseNombre);
+      map.set(key, Number(map.get(key) || 0) + Number(registro.total_horas ?? registro.horas ?? 0));
+    });
+
+    return map;
+  }, [horasResumen]);
+  const fasesConHoras = useMemo(() => {
+    const map = new Map();
+
+    fases.forEach((fase) => {
+      const key = String(fase.id_fase ?? fase.nombre);
+      map.set(key, fase);
+    });
+
+    horasResumen.forEach((registro, index) => {
+      const faseId = getHorasFaseId(registro);
+      const faseNombre = getHorasFaseNombre(registro);
+      if (!faseId && !faseNombre) return;
+
+      const key = String(faseId ?? faseNombre);
+      if (map.has(key)) return;
+
+      map.set(key, {
+        id_fase: faseId ?? `resumen-${index}`,
+        nombre: faseNombre || `Fase #${faseId}`,
+        horas_estimadas: 0,
+        horas_trabajadas: Number(registro.total_horas ?? registro.horas ?? 0),
+        fromResumen: true,
+      });
+    });
+
+    return Array.from(map.values()).sort((a, b) => {
+      const aId = Number(a.id_fase);
+      const bId = Number(b.id_fase);
+      if (Number.isFinite(aId) && Number.isFinite(bId)) return aId - bId;
+      return String(a.nombre).localeCompare(String(b.nombre));
+    });
+  }, [fases, horasResumen]);
+
   const filtered = useMemo(() => {
     const term = search.toLowerCase();
-    return fases.filter((fase) => fase.nombre.toLowerCase().includes(term));
-  }, [fases, search]);
+    return fasesConHoras.filter((fase) => fase.nombre.toLowerCase().includes(term));
+  }, [fasesConHoras, search]);
 
-  const totalHoras = fases.reduce((acc, fase) => acc + Number(fase.horas_estimadas || 0), 0);
+  const totalHoras = fasesConHoras.reduce((acc, fase) => acc + Number(fase.horas_estimadas || 0), 0);
+
+  const getHorasRegistradas = (fase) => {
+    if (fase.horas_trabajadas !== undefined || fase.horas_registradas !== undefined) {
+      return Number(fase.horas_trabajadas ?? fase.horas_registradas ?? 0);
+    }
+
+    const byId = fase.id_fase !== undefined && fase.id_fase !== null
+      ? horasRegistradasByFase.get(String(fase.id_fase))
+      : undefined;
+
+    if (byId !== undefined) return byId;
+    const byName = horasRegistradasByFase.get(String(fase.nombre));
+    if (byName !== undefined) return byName;
+    return 0;
+  };
+  const totalHorasRegistradas = fasesConHoras.reduce((acc, fase) => acc + Number(getHorasRegistradas(fase) || 0), 0);
 
   const handleSaved = () => {
     setShowForm(false);
@@ -113,9 +188,9 @@ const FasesLists = ({ proyectoId: proyectoIdProp, embedded = false, onClose }) =
 
       <div className="row g-3 mb-4 stagger">
         {[
-          { label: "Total fases", value: fases.length, icon: "bi-layers-fill", color: "var(--primary)", bg: "rgba(79,70,229,.1)" },
+          { label: "Total fases", value: fasesConHoras.length, icon: "bi-layers-fill", color: "var(--primary)", bg: "rgba(79,70,229,.1)" },
           { label: "Horas estimadas", value: `${totalHoras.toFixed(1)}h`, icon: "bi-clock-fill", color: "var(--accent)", bg: "rgba(6,182,212,.1)" },
-          { label: "Activas", value: fases.filter((fase) => fase.is_active).length, icon: "bi-check-circle-fill", color: "var(--success)", bg: "rgba(16,185,129,.1)" },
+          { label: "Horas registradas", value: `${totalHorasRegistradas.toFixed(1)}h`, icon: "bi-clock-history", color: "var(--success)", bg: "rgba(16,185,129,.1)" },
         ].map((stat, index) => (
           <div className="col-12 col-sm-4" key={index}>
             <div className="stat-card card-3d animate-fadeInUp">
@@ -177,6 +252,7 @@ const FasesLists = ({ proyectoId: proyectoIdProp, embedded = false, onClose }) =
                 <th>#</th>
                 <th>Fase</th>
                 <th>Horas estimadas</th>
+                <th>Horas registradas</th>
                 {canManage && <th className="text-end">Acciones</th>}
               </tr>
             </thead>
@@ -184,7 +260,7 @@ const FasesLists = ({ proyectoId: proyectoIdProp, embedded = false, onClose }) =
               {loading ? (
                 Array.from({ length: 4 }).map((_, i) => (
                   <tr key={i}>
-                    {Array.from({ length: canManage ? 4 : 3 }).map((_, j) => (
+                    {Array.from({ length: canManage ? 5 : 4 }).map((_, j) => (
                       <td key={j}><div className="skeleton rounded" style={{ height: 20, width: "80%" }}></div></td>
                     ))}
                   </tr>
@@ -204,6 +280,9 @@ const FasesLists = ({ proyectoId: proyectoIdProp, embedded = false, onClose }) =
                     <td className="text-muted small">
                       {Number(fase.horas_estimadas || 0).toFixed(1)}h
                     </td>
+                    <td className="small fw-bold" style={{ color: "var(--primary)" }}>
+                      {Number(getHorasRegistradas(fase) || 0).toFixed(1)}h
+                    </td>
                     {canManage && (
                       <td className="text-end">
                         <div className="d-flex gap-2 justify-content-end">
@@ -220,7 +299,7 @@ const FasesLists = ({ proyectoId: proyectoIdProp, embedded = false, onClose }) =
                 ))
               ) : (
                 <tr>
-                  <td colSpan={canManage ? 4 : 3}>
+                  <td colSpan={canManage ? 5 : 4}>
                     <div className="empty-state">
                       <i className="bi bi-layers"></i>
                       <h6>Sin fases</h6>
