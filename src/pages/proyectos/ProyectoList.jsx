@@ -5,6 +5,7 @@ import HorasForm from "../horas/HorasForm";
 import FasesLists from "../fases/FasesLists";
 import NotasLists from "../notas/NotasLists";
 import { useAuth } from "../../context/AuthContext";
+import { getHoras } from "../../services/horasService";
 import { 
   getProyectos, getMisProyectos, getProyectoById, eliminarProyecto, 
   finalizarProyecto // Asegúrate de que esté importado
@@ -127,6 +128,89 @@ const ProjectContentModal = ({ children, onClose }) => (
     </div>
   </div>
 );
+
+const EmpleadoProyectoDetailModal = ({ proyecto, onClose, horasRegistradas = 0, fases = [] }) => {
+  if (!proyecto) return null;
+
+  return (
+    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal-card p-0 animate-scaleIn" style={{ maxWidth: 760 }}>
+        <div style={{ height: 4, background: "linear-gradient(90deg, var(--primary), var(--accent))" }}></div>
+        <div className="p-4">
+          <div className="d-flex justify-content-between align-items-start gap-3 mb-4">
+            <div>
+              <h5 className="fw-bold mb-1">{proyecto.nombre}</h5>
+              <p className="text-muted small mb-0">{getServicioNombre(proyecto)}</p>
+            </div>
+            <button className="btn btn-sm btn-light rounded-3" onClick={onClose}>
+              <i className="bi bi-x-lg"></i>
+            </button>
+          </div>
+
+          <div className="row g-3">
+            <div className="col-12 col-md-7">
+              <div className="p-3 rounded-4 bg-light h-100">
+                <h6 className="fw-bold small mb-3">Información del proyecto</h6>
+                <p className="text-muted small mb-3" style={{ lineHeight: 1.6 }}>
+                  {proyecto.descripcion || "Sin descripción registrada."}
+                </p>
+                <div className="d-flex flex-wrap gap-2">
+                  <span className="badge badge-role badge-active">
+                    Horas registradas: {Number(horasRegistradas || 0).toFixed(1)}h
+                  </span>
+                  {fases.length > 0 && (
+                    <span className="badge badge-role badge-empleado">
+                      {fases.length} fase{fases.length !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="col-12 col-md-5">
+              <div className="p-3 rounded-4 bg-light h-100">
+                <h6 className="fw-bold small mb-3">Fechas y asignación</h6>
+                <div className="small text-muted mb-2">
+                  <i className="bi bi-calendar-event me-2"></i>
+                  Asignación / inicio: {formatProyectoDate(proyecto.fecha_inicio)}
+                </div>
+                <div className="small text-muted mb-2">
+                  <i className="bi bi-calendar-check me-2"></i>
+                  Fin estimado: {formatProyectoDate(proyecto.fecha_fin_estimada)}
+                </div>
+                {proyecto.fecha_fin_real && (
+                  <div className="small text-muted mb-2">
+                    <i className="bi bi-flag-fill me-2" style={{ color: "#059669" }}></i>
+                    Fin real: {formatProyectoDate(proyecto.fecha_fin_real)}
+                  </div>
+                )}
+                {proyecto.lider_nombre && (
+                  <div className="small text-muted mt-3">
+                    <i className="bi bi-star-fill me-2" style={{ color: "#D97706" }}></i>
+                    Líder: <strong>{proyecto.lider_nombre}</strong>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {fases.length > 0 && (
+            <div className="mt-3">
+              <h6 className="fw-bold small mb-2">Fases con horas registradas</h6>
+              <div className="d-flex flex-wrap gap-2">
+                {fases.map((fase) => (
+                  <span key={fase} className="badge rounded-pill" style={{ background: "rgba(79,70,229,.1)", color: "var(--primary)" }}>
+                    {fase}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 /* ── Vista propietario ───────────────────────── */
 const PropietarioView = () => {
@@ -633,13 +717,88 @@ const EmpleadoView = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [horasProyecto, setHorasProyecto] = useState(null);
+  const [search, setSearch] = useState("");
+  const [faseFilter, setFaseFilter] = useState("");
+  const [selected, setSelected] = useState(null);
+  const [horasByProyecto, setHorasByProyecto] = useState({});
+  const [fasesByProyecto, setFasesByProyecto] = useState({});
 
   useEffect(() => {
-    getMisProyectos()
-      .then((res) => { if (res.success) setProyectos(res.data); else setError("No se pudieron cargar tus proyectos."); })
-      .catch(() => setError("Error al conectar con el servidor."))
-      .finally(() => setLoading(false));
+    const fetchData = async () => {
+      try {
+        const proyectosRes = await getMisProyectos();
+        if (proyectosRes?.success) {
+          const proyectoList = proyectosRes.data || [];
+          setProyectos(proyectoList);
+          if (proyectoList.length > 0) setSelected(proyectoList[0]);
+        } else {
+          setError("No se pudieron cargar tus proyectos.");
+        }
+      } catch {
+        setError("Error al conectar con el servidor.");
+      }
+
+      try {
+        const horasRes = await getHoras();
+        const horasData = Array.isArray(horasRes)
+          ? horasRes
+          : (horasRes?.success && Array.isArray(horasRes.data) ? horasRes.data : []);
+
+        const horasMap = {};
+        const fasesMap = {};
+
+        horasData.forEach((registro) => {
+          const proyectoId = Number(registro.id_proyecto);
+          if (!proyectoId) return;
+
+          horasMap[proyectoId] = Number(horasMap[proyectoId] || 0) + Number(registro.horas || 0);
+
+          const faseNombre = registro.fase || registro.fase_nombre;
+          if (faseNombre) {
+            if (!fasesMap[proyectoId]) fasesMap[proyectoId] = new Set();
+            fasesMap[proyectoId].add(faseNombre);
+          }
+        });
+
+        const fasesNormalized = Object.fromEntries(
+          Object.entries(fasesMap).map(([id, fases]) => [id, Array.from(fases)])
+        );
+
+        setHorasByProyecto(horasMap);
+        setFasesByProyecto(fasesNormalized);
+      } catch {
+        // Si falla horas, no bloqueamos la vista de proyectos.
+        setHorasByProyecto({});
+        setFasesByProyecto({});
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, []);
+
+  const proyectosConResumen = proyectos.map((p) => {
+    const fases = fasesByProyecto[p.id_proyecto] || [];
+    return {
+      ...p,
+      horas_registradas: Number(horasByProyecto[p.id_proyecto] || 0),
+      fases,
+    };
+  });
+
+  const fasesDisponibles = Array.from(
+    new Set(proyectosConResumen.flatMap((p) => p.fases || []))
+  ).sort((a, b) => a.localeCompare(b));
+
+  const filtered = proyectosConResumen.filter((p) => {
+    const text = search.trim().toLowerCase();
+    const matchText = !text ||
+      p.nombre?.toLowerCase().includes(text) ||
+      (p.descripcion || "").toLowerCase().includes(text);
+    const matchFase = !faseFilter || (p.fases || []).includes(faseFilter);
+    return matchText && matchFase;
+  });
 
   return (
     <Layout>
@@ -649,11 +808,35 @@ const EmpleadoView = () => {
             <h2 className="fw-bold mb-1">Mis proyectos asignados</h2>
             <p className="text-muted small mb-0">Proyectos a los que has sido asignado</p>
           </div>
-          <button className="btn btn-primary d-flex align-items-center gap-2 px-4"
-            onClick={() => setHorasProyecto({ id_proyecto: null })}>
-            <i className="bi bi-clock-history"></i>
-            Registrar Horas
-          </button>
+        </div>
+
+        <div className="row g-2 mb-3">
+          <div className="col-12 col-md-6">
+            <div className="input-group">
+              <span className="input-group-text bg-white border-end-0">
+                <i className="bi bi-search text-muted"></i>
+              </span>
+              <input
+                type="text"
+                className="form-control border-start-0 ps-0"
+                placeholder="Buscar proyecto..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="col-12 col-md-4">
+            <select
+              className="form-select"
+              value={faseFilter}
+              onChange={(e) => setFaseFilter(e.target.value)}
+            >
+              <option value="">Todas las fases</option>
+              {fasesDisponibles.map((fase) => (
+                <option key={fase} value={fase}>{fase}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {error && (
@@ -663,12 +846,29 @@ const EmpleadoView = () => {
         )}
 
         {loading ? (
-          <div className="row g-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div className="col-12 col-md-6 col-lg-4" key={i}>
-                <div className="skeleton rounded-4" style={{ height: 180 }}></div>
-              </div>
-            ))}
+          <div className="card border-0 rounded-4 overflow-hidden" style={{ boxShadow: "var(--shadow-md)" }}>
+            <div className="table-responsive">
+              <table className="table table-modern mb-0">
+                <thead>
+                  <tr>
+                    <th>Proyecto</th>
+                    <th>Fases</th>
+                    <th>Horas registradas</th>
+                    <th>Fechas</th>
+                    <th className="text-end">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <tr key={i}>
+                      {Array.from({ length: 5 }).map((__, j) => (
+                        <td key={j}><div className="skeleton rounded" style={{ height: 20, width: "80%" }}></div></td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         ) : proyectos.length === 0 ? (
           <div className="card border-0 rounded-4 d-flex flex-column align-items-center justify-content-center py-5"
@@ -678,68 +878,72 @@ const EmpleadoView = () => {
             <p className="text-muted small">Contacta con tu líder para que te asigne a un proyecto.</p>
           </div>
         ) : (
-          <div className="row g-3">
-            {proyectos.map((p) => (
-              <div className="col-12 col-md-6 col-lg-4" key={p.id_proyecto}>
-                <div className="card border-0 rounded-4 h-100 animate-fadeIn"
-                  style={{ boxShadow: "var(--shadow-md)", transition: "transform .2s, box-shadow .2s" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "var(--shadow-lg)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "var(--shadow-md)"; }}>
-                  <div style={{ height: 4, background: "linear-gradient(90deg, var(--primary), var(--accent))", borderRadius: "12px 12px 0 0" }}></div>
-                  <div className="card-body p-4">
-                    <div className="d-flex align-items-start gap-3 mb-3">
-                      <div className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
-                        style={{ width: 40, height: 40, background: "rgba(79,70,229,.1)" }}>
-                        <i className="bi bi-kanban-fill" style={{ color: "var(--primary)", fontSize: 18 }}></i>
-                      </div>
-                      <div className="flex-grow-1">
-                        <h6 className="fw-bold mb-0">{p.nombre}</h6>
-                        {p.servicio_nombre && (
-                          <span className="badge rounded-pill mt-1"
-                            style={{ fontSize: 10, background: "rgba(6,182,212,.1)", color: "#0891B2" }}>
-                            {p.servicio_nombre}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    {p.descripcion && (
-                      <p className="text-muted small mb-3" style={{ lineHeight: 1.5 }}>
-                        {p.descripcion.slice(0, 100)}{p.descripcion.length > 100 ? "…" : ""}
-                      </p>
-                    )}
-                    {p.lider_nombre && (
-                      <div className="d-flex align-items-center gap-2 mb-2">
-                        <i className="bi bi-star-fill" style={{ color: "#D97706", fontSize: 11 }}></i>
-                        <span className="small text-muted">Líder: <strong>{p.lider_nombre}</strong></span>
-                      </div>
-                    )}
-                    <div className="d-flex flex-wrap gap-2 mt-2">
-                      {p.horas_estimadas && (
-                        <span className="badge rounded-pill" style={{ fontSize: 11, background: "rgba(79,70,229,.08)", color: "var(--primary)" }}>
-                          <i className="bi bi-clock me-1"></i>{p.horas_estimadas}h
-                        </span>
-                      )}
-                      {p.fecha_inicio && (
-                        <span className="badge rounded-pill" style={{ fontSize: 11, background: "rgba(16,185,129,.08)", color: "#059669" }}>
-                          <i className="bi bi-calendar me-1"></i>{p.fecha_inicio.slice(0, 10)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-3 pt-3" style={{ borderTop: "1px solid rgba(79,70,229,.08)" }}>
-                      <button
-                        className="btn btn-sm btn-primary w-100 d-flex align-items-center justify-content-center gap-2"
-                        onClick={() => setHorasProyecto(p)}
+          <div className="card border-0 rounded-4 overflow-hidden" style={{ boxShadow: "var(--shadow-md)" }}>
+            <div className="table-responsive">
+              <table className="table table-modern mb-0">
+                <thead>
+                  <tr>
+                    <th>Proyecto</th>
+                    <th>Fases</th>
+                    <th>Horas registradas</th>
+                    <th>Fechas</th>
+                    <th className="text-end">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.length > 0 ? (
+                    filtered.map((p) => (
+                      <tr
+                        key={p.id_proyecto}
+                        className="animate-fadeIn"
+                        style={{ cursor: "pointer" }}
+                        onClick={() => setSelected(p)}
                       >
-                        <i className="bi bi-clock-history"></i>
-                        Registrar Horas
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
+                        <td className="fw-semibold">
+                          <div>{p.nombre}</div>
+                          {p.servicio_nombre && <small className="text-muted">{p.servicio_nombre}</small>}
+                        </td>
+                        <td className="text-muted small">
+                          {p.fases?.length ? p.fases.join(", ") : "—"}
+                        </td>
+                        <td>
+                          <span className="fw-bold" style={{ color: "var(--primary)" }}>
+                            {Number(p.horas_registradas || 0).toFixed(1)}h
+                          </span>
+                        </td>
+                        <td className="text-muted small">
+                          {p.fecha_inicio ? `Inicio: ${p.fecha_inicio.slice(0, 10)}` : "Inicio: —"}
+                          <br />
+                          {p.fecha_fin_estimada ? `Fin est.: ${p.fecha_fin_estimada.slice(0, 10)}` : "Fin est.: —"}
+                        </td>
+                        <td className="text-end" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            className="btn btn-sm btn-primary d-inline-flex align-items-center gap-2"
+                            onClick={() => setHorasProyecto(p)}
+                          >
+                            <i className="bi bi-clock-history"></i>
+                            Registrar horas
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="5">
+                        <div className="empty-state">
+                          <i className="bi bi-search"></i>
+                          <h6>Sin resultados</h6>
+                          <p>No se encontraron proyectos con los filtros aplicados.</p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
+
       </div>
 
       {horasProyecto !== null && (
@@ -749,6 +953,13 @@ const EmpleadoView = () => {
           onCancel={() => setHorasProyecto(null)}
         />
       )}
+
+      <EmpleadoProyectoDetailModal
+        proyecto={selected}
+        horasRegistradas={selected ? horasByProyecto[selected.id_proyecto] : 0}
+        fases={selected ? (fasesByProyecto[selected.id_proyecto] || []) : []}
+        onClose={() => setSelected(null)}
+      />
     </Layout>
   );
 };
