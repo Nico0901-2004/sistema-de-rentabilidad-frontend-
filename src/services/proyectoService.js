@@ -5,6 +5,8 @@ export const getProyectos = async () => {
   return response.data;
 };
 
+export const getRentabilidadProyectos = getProyectos;
+
 export const getMisProyectos = async () => {
   const response = await api.get("/proyectos");
   return response.data;

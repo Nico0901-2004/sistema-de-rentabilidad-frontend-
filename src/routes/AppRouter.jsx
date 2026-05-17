@@ -16,6 +16,7 @@ import UsuarioList      from "../pages/usuarios/UsuarioList";
 import ServicioList     from "../pages/servicios/ServicioList";
 import FasesLists       from "../pages/fases/FasesLists";
 import NotasLists       from "../pages/notas/NotasLists";
+import Rentabilidad     from "../pages/rentabilidad/Rentabilidad";
 
 // Horas y Asistencia
 import HorasList        from "../pages/horas/HorasList";
@@ -96,6 +97,9 @@ export default function AppRouter() {
       } />
       <Route path="/servicios" element={
         <RequireAuth><RequireRole roles={["propietario"]}><ServicioList /></RequireRole></RequireAuth>
+      } />
+      <Route path="/rentabilidad" element={
+        <RequireAuth><RequireRole roles={["propietario"]}><Rentabilidad /></RequireRole></RequireAuth>
       } />
 
       {/* ══════════ LIDER ══════════ */}

@@ -21,6 +21,7 @@ const getNavItems = (rol) => {
         { to: "/usuarios", icon: "bi-people-fill", label: "Usuarios" },
         { to: "/servicios", icon: "bi-briefcase-fill", label: "Servicios" },
         { to: "/proyectos", icon: "bi-kanban-fill", label: "Proyectos" },
+        { to: "/rentabilidad", icon: "bi-graph-up-arrow", label: "Rentabilidad" },
         { to: "/perfil", icon: "bi-person-circle", label: "Mi Perfil" },
       ];
     case "lider":
