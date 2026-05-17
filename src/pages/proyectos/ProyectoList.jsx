@@ -730,7 +730,6 @@ const EmpleadoView = () => {
         if (proyectosRes?.success) {
           const proyectoList = proyectosRes.data || [];
           setProyectos(proyectoList);
-          if (proyectoList.length > 0) setSelected(proyectoList[0]);
         } else {
           setError("No se pudieron cargar tus proyectos.");
         }
