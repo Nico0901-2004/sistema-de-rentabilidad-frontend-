@@ -784,21 +784,55 @@ const LiderView = () => {
   const [selected, setSelected] = useState(null);
   const [contentModal, setContentModal] = useState(null);
   const [search, setSearch] = useState("");
+  const [horasByProyecto, setHorasByProyecto] = useState({});
+  const [loadingHoras, setLoadingHoras] = useState(false);
+  const [horasError, setHorasError] = useState("");
 
   // --- NUEVOS ESTADOS PARA H37 ---
   const [showFinalizarModal, setShowFinalizarModal] = useState(false);
   const [proyectoAFinalizar, setProyectoAFinalizar] = useState(null);
   const [fechaFinReal, setFechaFinReal] = useState(new Date().toISOString().split('T')[0]);
 
-  const fetch = useCallback(() => {
+  const fetch = useCallback(async () => {
     setLoading(true);
-    getMisProyectos()
-      .then((res) => { 
-        if (res.success) setProyectos(res.data); 
-        else setError("No se pudieron cargar tus proyectos."); 
-      })
-      .catch(() => setError("Error al conectar con el servidor."))
-      .finally(() => setLoading(false));
+    setLoadingHoras(true);
+    setError("");
+    setHorasError("");
+
+    try {
+      const proyectosRes = await getMisProyectos();
+
+      if (!proyectosRes?.success) {
+        setProyectos([]);
+        setError("No se pudieron cargar tus proyectos.");
+        setHorasByProyecto({});
+        return;
+      }
+
+      const proyectosList = proyectosRes.data || [];
+      setProyectos(proyectosList);
+
+      const resumenEntries = await Promise.all(
+        proyectosList.map(async (proyecto) => {
+          try {
+            const resumen = await getHorasResumenProyecto(proyecto.id_proyecto);
+            return [proyecto.id_proyecto, normalizeHorasResumen(resumen, proyecto)];
+          } catch {
+            return [proyecto.id_proyecto, []];
+          }
+        })
+      );
+
+      setHorasByProyecto(Object.fromEntries(resumenEntries));
+    } catch {
+      setProyectos([]);
+      setHorasByProyecto({});
+      setError("Error al conectar con el servidor.");
+      setHorasError("");
+    } finally {
+      setLoading(false);
+      setLoadingHoras(false);
+    }
   }, []);
 
   useEffect(() => { fetch(); }, [fetch]);
@@ -828,6 +862,11 @@ const LiderView = () => {
     }
   };
 
+  const getResumenProyecto = useCallback(
+    (proyectoId) => horasByProyecto[proyectoId] || [],
+    [horasByProyecto]
+  );
+
   const filtered = proyectos.filter((p) =>
     p.nombre.toLowerCase().includes(search.toLowerCase()) ||
     getServicioNombre(p).toLowerCase().includes(search.toLowerCase())
@@ -848,6 +887,12 @@ const LiderView = () => {
 
         {/* ... Stats Block ... */}
 
+        {error && (
+          <div className="alert alert-danger d-flex align-items-center small rounded-3">
+            <i className="bi bi-exclamation-circle-fill me-2"></i>{error}
+          </div>
+        )}
+
         <div className="mb-3">
           <div className="input-group" style={{ maxWidth: 360 }}>
             <span className="input-group-text bg-white border-end-0">
@@ -866,6 +911,7 @@ const LiderView = () => {
                   <th style={{ width: 30 }}></th>
                   <th>Proyecto</th>
                   <th>Servicio</th>
+                  <th className="text-center">Horas registradas</th>
                   <th>Fechas</th>
                   <th className="text-end">Acciones</th>
                 </tr>
@@ -873,10 +919,13 @@ const LiderView = () => {
               <tbody>
                 {loading ? (
                    // ... Skeletons ...
-                   <tr><td colSpan="5">Cargando...</td></tr>
+                   <tr><td colSpan="6">Cargando...</td></tr>
                 ) : filtered.length > 0 ? (
                   filtered.map((p) => {
                     const active = isProyectoActivo(p);
+                    const resumenProyecto = getResumenProyecto(p.id_proyecto);
+                    const totalHorasProyecto = getTotalHorasResumen(resumenProyecto);
+                    const fasesConHoras = groupHorasByFase(resumenProyecto);
                     return (
                       <tr key={p.id_proyecto} className="animate-fadeIn" style={{ cursor: "pointer" }} onClick={() => setSelected(p)}>
                         <td><i className="bi bi-chevron-right" style={{ color: "var(--primary)", fontSize: 12 }}></i></td>
@@ -893,6 +942,16 @@ const LiderView = () => {
                           </div>
                         </td>
                         <td className="text-muted small">{getServicioNombre(p)}</td>
+                        <td className="text-center">
+                          <span className="fw-bold" style={{ color: "var(--primary)" }}>
+                            {loadingHoras ? "..." : `${totalHorasProyecto.toFixed(1)}h`}
+                          </span>
+                          {fasesConHoras.length > 0 && (
+                            <span className="d-block text-muted" style={{ fontSize: 11 }}>
+                              {fasesConHoras.length} fase{fasesConHoras.length !== 1 ? "s" : ""}
+                            </span>
+                          )}
+                        </td>
                         <td className="text-muted small">
                           {p.fecha_inicio ? p.fecha_inicio.slice(0, 10) : "—"}
                           {p.fecha_fin_estimada ? <><br /><span style={{ fontSize: 10 }}>Est: {p.fecha_fin_estimada.slice(0, 10)}</span></> : ""}
@@ -926,7 +985,7 @@ const LiderView = () => {
                     );
                   })
                 ) : (
-                  <tr><td colSpan="5" className="text-center py-4">No hay proyectos.</td></tr>
+                  <tr><td colSpan="6" className="text-center py-4">No hay proyectos.</td></tr>
                 )}
               </tbody>
             </table>
@@ -934,13 +993,26 @@ const LiderView = () => {
         </div>
       </div>
 
-      <ProyectoDetailModal proyecto={selected} onClose={() => setSelected(null)} />
+      {horasError && !loadingHoras && (
+        <div className="alert alert-warning d-flex align-items-center small rounded-3 mt-3">
+          <i className="bi bi-exclamation-triangle-fill me-2"></i>{horasError}
+        </div>
+      )}
+
+      <ProyectoDetailModal
+        proyecto={selected}
+        horasResumen={selected ? getResumenProyecto(selected.id_proyecto) : []}
+        horasLoading={loadingHoras}
+        horasError={horasError}
+        onClose={() => setSelected(null)}
+      />
       {contentModal && (
         <ProjectContentModal onClose={() => setContentModal(null)}>
           {contentModal.type === "fases" ? (
             <FasesLists
               embedded
               proyectoId={contentModal.proyecto.id_proyecto}
+              horasResumen={getResumenProyecto(contentModal.proyecto.id_proyecto)}
               onClose={() => setContentModal(null)}
             />
           ) : (
