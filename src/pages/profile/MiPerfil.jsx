@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import Layout from "../../components/layout/Layout";
 import { useAuth } from "../../context/AuthContext";
 import { getEmpresaById } from "../../services/empresaService";
-import api from "../../services/api";
+import { updateUsuario } from "../../services/usuarioService";
 
 const ROL_CONFIG = {
   admin:       { label: "Administrador", color: "#DC2626", bg: "rgba(239,68,68,.1)",   icon: "bi-shield-fill" },
@@ -46,13 +46,13 @@ const MiPerfil = () => {
     try {
       const payload = { nombre: form.nombre, email: form.email };
       if (form.password) payload.password = form.password;
-      const res = await api.put(`/usuarios/${user.id_usuario}`, payload);
-      if (res.data?.success) {
+      const res = await updateUsuario(user.id_usuario, payload);
+      if (res?.success) {
         setSuccess("Perfil actualizado correctamente.");
         updateUser({ nombre: form.nombre, email: form.email });
         setEditing(false);
       } else {
-        setError(res.data?.message || "Error al actualizar.");
+        setError(res?.message || "Error al actualizar.");
       }
     } catch (err) {
       setError(err.response?.data?.message || "Error al actualizar el perfil.");

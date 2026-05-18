@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from "react";
+import FormActions from "../../components/ui/FormActions";
+import FormField from "../../components/ui/FormField";
+import TextAreaField from "../../components/ui/TextAreaField";
 import {
   createServicio,
   updateServicio,
@@ -75,36 +78,32 @@ const ServicioForm = ({ servicioId, onSaved, onCancel }) => {
         {error && <div className="alert alert-danger small">{error}</div>}
 
         <form onSubmit={handleSubmit}>
-          <div className="mb-3">
-            <label className="form-label fw-medium small">Nombre</label>
-            <input
-              type="text"
-              name="nombre"
-              value={form.nombre}
-              onChange={handleChange}
-              className="form-control bg-light border-0"
-              required
-              minLength={3}
-            />
-          </div>
-          <div className="mb-4">
-            <label className="form-label fw-medium small">
-              Descripción{" "}
-              <span className="text-muted fw-normal">(opcional)</span>
-            </label>
-            <textarea
-              name="descripcion"
-              value={form.descripcion}
-              onChange={handleChange}
-              className="form-control bg-light border-0"
-              rows={3}
-            />
-          </div>
-          <button type="submit" className="btn btn-primary w-100" disabled={loading}>
-            {loading
-              ? <><span className="spinner-border spinner-border-sm me-2"></span>Guardando...</>
-              : servicioId ? "Guardar cambios" : "Crear servicio"}
-          </button>
+          <FormField
+            className="mb-3"
+            label="Nombre"
+            type="text"
+            name="nombre"
+            value={form.nombre}
+            onChange={handleChange}
+            inputClassName="bg-light border-0"
+            required
+            minLength={3}
+          />
+          <TextAreaField
+            className="mb-4"
+            label={<><span>Descripción </span><span className="text-muted fw-normal">(opcional)</span></>}
+            name="descripcion"
+            value={form.descripcion}
+            onChange={handleChange}
+            textareaClassName="bg-light border-0"
+            rows={3}
+          />
+          <FormActions
+            showCancel={false}
+            loading={loading}
+            submitClassName="btn btn-primary w-100"
+            submitLabel={servicioId ? "Guardar cambios" : "Crear servicio"}
+          />
         </form>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getMisMarcajes, marcarEntrada, marcarSalida } from "../../services/horasService";
 import { notifyError, notifySuccess } from "../../utils/notify";
@@ -23,7 +23,7 @@ const ButtonMarcaje = () => {
   const [mensaje, setMensaje] = useState("");
   const [marcaje, setMarcaje] = useState({ entrada: false, salida: false });
 
-  const cargarEstadoMarcaje = async () => {
+  const cargarEstadoMarcaje = useCallback(async () => {
     try {
       const res = await getMisMarcajes();
       const list = Array.isArray(res?.data) ? res.data : [];
@@ -53,11 +53,11 @@ const ButtonMarcaje = () => {
         }
       }
     }
-  };
+  }, [storageKey]);
 
   useEffect(() => {
     cargarEstadoMarcaje();
-  }, []);
+  }, [cargarEstadoMarcaje]);
 
   const handleMarcarEntrada = async () => {
     if (loading || marcaje.entrada) return;

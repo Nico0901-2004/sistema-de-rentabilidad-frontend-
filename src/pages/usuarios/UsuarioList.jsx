@@ -1,37 +1,14 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Layout from "../../components/layout/Layout";
 import UsuarioForm from "./UsuarioForm";
+import DataTable from "../../components/ui/DataTable";
+import ConfirmModal from "../../components/ui/ConfirmModal";
 import { useAuth } from "../../context/AuthContext";
 import { getUsuarios, deleteUsuario } from "../../services/usuarioService";
 import { notifySuccess, notifyError } from "../../utils/notify";
 
 const ROL_BADGE = { lider: "badge-lider", empleado: "badge-empleado" };
 const ROL_LABEL = { lider: "Líder", empleado: "Empleado" };
-
-/* ── Confirm modal ───────────────────────────── */
-const ConfirmModal = ({ title, message, confirmLabel, danger, onConfirm, onCancel }) => (
-  <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onCancel()}>
-    <div className="modal-card p-4 animate-scaleIn" style={{ maxWidth: 420 }}>
-      <div className="d-flex align-items-start gap-3 mb-4">
-        <div className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
-          style={{ width: 44, height: 44, background: danger ? "rgba(239,68,68,.1)" : "rgba(245,158,11,.1)" }}>
-          <i className={`bi ${danger ? "bi-trash-fill" : "bi-exclamation-triangle-fill"}`}
-            style={{ color: danger ? "var(--danger)" : "var(--warning)", fontSize: 20 }}></i>
-        </div>
-        <div>
-          <h6 className="fw-bold mb-1">{title}</h6>
-          <p className="text-muted small mb-0">{message}</p>
-        </div>
-      </div>
-      <div className="d-flex gap-2">
-        <button className="btn btn-light flex-fill fw-semibold" onClick={onCancel}>Cancelar</button>
-        <button className={`btn ${danger ? "btn-danger" : "btn-warning"} flex-fill fw-bold`} onClick={onConfirm}>
-          {confirmLabel}
-        </button>
-      </div>
-    </div>
-  </div>
-);
 
 const UsuarioList = () => {
   const { user } = useAuth();
@@ -90,6 +67,41 @@ const UsuarioList = () => {
   const subtitle = isLider
     ? "Lista de colaboradores de tu empresa (solo lectura)"
     : "Administra los miembros de tu empresa";
+
+  const columns = [
+    { header: "#", accessor: "id_usuario", cellClassName: "text-muted fw-bold", render: (u) => `#${u.id_usuario}` },
+    {
+      header: "Colaborador",
+      render: (u) => (
+        <div className="d-flex align-items-center gap-2">
+          <div className="avatar" style={{ width: 34, height: 34, fontSize: 12 }}>
+            {u.nombre.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()}
+          </div>
+          <span className="fw-semibold">{u.nombre}</span>
+        </div>
+      ),
+    },
+    { header: "Correo", accessor: "email", cellClassName: "text-muted" },
+    {
+      header: "Rol",
+      render: (u) => (
+        <span className={`badge badge-role usuarios-rol-badge ${ROL_BADGE[u.rol] || "badge-owner"}`}>
+          {ROL_LABEL[u.rol] || u.rol}
+        </span>
+      ),
+    },
+  ];
+
+  const filters = (
+    <div className="input-group" style={{ maxWidth: 360 }}>
+      <span className="input-group-text bg-white border-end-0">
+        <i className="bi bi-search text-muted"></i>
+      </span>
+      <input type="text" className="form-control border-start-0 ps-0"
+        placeholder="Buscar por nombre o email..."
+        value={search} onChange={(e) => setSearch(e.target.value)} />
+    </div>
+  );
 
   return (
     <Layout>
@@ -167,97 +179,26 @@ const UsuarioList = () => {
           />
         )}
 
-        {/* Search */}
-        <div className="mb-3">
-          <div className="input-group" style={{ maxWidth: 360 }}>
-            <span className="input-group-text bg-white border-end-0">
-              <i className="bi bi-search text-muted"></i>
-            </span>
-            <input type="text" className="form-control border-start-0 ps-0"
-              placeholder="Buscar por nombre o email..."
-              value={search} onChange={(e) => setSearch(e.target.value)} />
-          </div>
-        </div>
-
-        {error && (
-          <div className="alert alert-danger d-flex align-items-center small rounded-3">
-            <i className="bi bi-exclamation-circle-fill me-2"></i>{error}
-          </div>
-        )}
-
-        {/* Table */}
-        <div className="card border-0 rounded-4 overflow-hidden" style={{ boxShadow: "var(--shadow-md)" }}>
-          <div className="table-responsive">
-            <table className="table table-modern mb-0">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Colaborador</th>
-                  <th>Correo</th>
-                  <th>Rol</th>
-                  {!isLider && <th className="text-end">Acciones</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  Array.from({ length: 4 }).map((_, i) => (
-                    <tr key={i}>
-                      {Array.from({ length: isLider ? 3 : 5 }).map((_, j) => (
-                        <td key={j}><div className="skeleton rounded" style={{ height: 20, width: "80%" }}></div></td>
-                      ))}
-                    </tr>
-                  ))
-                ) : filtered.length > 0 ? (
-                  filtered.map((u) => (
-                    <tr key={u.id_usuario} className="animate-fadeIn">
-                      <td className="text-muted fw-bold">#{u.id_usuario}</td>
-                      <td>
-                        <div className="d-flex align-items-center gap-2">
-                          <div className="avatar" style={{ width: 34, height: 34, fontSize: 12 }}>
-                            {u.nombre.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()}
-                          </div>
-                          <span className="fw-semibold">{u.nombre}</span>
-                        </div>
-                      </td>
-                      <td className="text-muted">{u.email}</td>
-                      <td>
-                        <span className={`badge badge-role usuarios-rol-badge ${ROL_BADGE[u.rol] || "badge-owner"}`}>
-                          {ROL_LABEL[u.rol] || u.rol}
-                        </span>
-                      </td>
-                      {!isLider && (
-                        <td className="text-end">
-                          <div className="d-flex gap-2 justify-content-end">
-                            <button className="btn btn-sm btn-success" title="Editar"
-                              onClick={() => handleEdit(u)}>
-                              <i className="bi bi-pencil-square"></i>
-                            </button>
-                            <button className="btn btn-sm btn-danger" title="Eliminar"
-                              onClick={() => setConfirmDelete(u)}>
-                              <i className="bi bi-trash-fill"></i>
-                            </button>
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={isLider ? 4 : 5}>
-                      <div className="empty-state">
-                        <i className="bi bi-people"></i>
-                        <h6>{isLider ? "Sin empleados" : "Sin usuarios"}</h6>
-                        <p>{isLider
-                          ? "No hay empleados registrados en tu empresa."
-                          : "Crea el primer usuario con el botón de arriba."}</p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <DataTable
+          columns={columns}
+          data={filtered}
+          loading={loading}
+          error={error}
+          rowKey="id_usuario"
+          filters={filters}
+          emptyIcon="bi-people"
+          emptyMessage={isLider ? "Sin empleados" : "Sin usuarios"}
+          renderActions={!isLider ? (u) => (
+            <div className="d-flex gap-2 justify-content-end">
+              <button className="btn btn-sm btn-success" title="Editar" onClick={() => handleEdit(u)}>
+                <i className="bi bi-pencil-square"></i>
+              </button>
+              <button className="btn btn-sm btn-danger" title="Eliminar" onClick={() => setConfirmDelete(u)}>
+                <i className="bi bi-trash-fill"></i>
+              </button>
+            </div>
+          ) : undefined}
+        />
       </div>
 
       {confirmDelete && (

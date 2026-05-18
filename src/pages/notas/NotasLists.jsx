@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Layout from "../../components/layout/Layout";
+import DataTable from "../../components/ui/DataTable";
+import ConfirmModal from "../../components/ui/ConfirmModal";
 import { useAuth } from "../../context/AuthContext";
 import { getProyectoById } from "../../services/proyectoService";
 import { desactivarNota, getNotasByProyecto } from "../../services/notaService";
@@ -16,30 +18,6 @@ const formatDate = (value) => {
     day: "2-digit",
   });
 };
-
-const ConfirmModal = ({ nota, onConfirm, onCancel }) => (
-  <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onCancel()}>
-    <div className="modal-card p-4 animate-scaleIn" style={{ maxWidth: 420 }}>
-      <div className="d-flex align-items-start gap-3 mb-4">
-        <div className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: 44, height: 44, background: "rgba(239,68,68,.1)" }}>
-          <i className="bi bi-trash-fill" style={{ color: "var(--danger)", fontSize: 20 }}></i>
-        </div>
-        <div>
-          <h6 className="fw-bold mb-1">Eliminar nota</h6>
-          <p className="text-muted small mb-0">
-            ¿Deseas eliminar esta nota? Se ocultará del proyecto.
-          </p>
-        </div>
-      </div>
-      <div className="d-flex gap-2">
-        <button className="btn btn-light flex-fill fw-semibold" onClick={onCancel}>Cancelar</button>
-        <button className="btn btn-danger flex-fill fw-bold" onClick={() => onConfirm(nota)}>
-          <i className="bi bi-trash-fill me-2"></i>Eliminar
-        </button>
-      </div>
-    </div>
-  </div>
-);
 
 const NotasLists = ({ proyectoId: proyectoIdProp, embedded = false, onClose }) => {
   const params = useParams();
@@ -126,6 +104,59 @@ const NotasLists = ({ proyectoId: proyectoIdProp, embedded = false, onClose }) =
     }
   };
 
+  const columns = [
+    { header: "#", accessor: "id_nota", cellClassName: "text-muted fw-bold", render: (nota) => `#${nota.id_nota}` },
+    {
+      header: "Nota",
+      cellStyle: { minWidth: 280 },
+      render: (nota) => (
+        <div className="d-flex align-items-start gap-2">
+          <div className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: 32, height: 32, background: "rgba(79,70,229,.1)" }}>
+            <i className="bi bi-journal-text" style={{ color: "var(--primary)", fontSize: 14 }}></i>
+          </div>
+          <span className="text-muted small" style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+            {nota.descripcion}
+          </span>
+        </div>
+      ),
+    },
+    { header: "Líder", accessor: "nombre_lider", cellClassName: "text-muted small", render: (nota) => nota.nombre_lider || "-" },
+    { header: "Fecha", accessor: "fecha", cellClassName: "text-muted small", render: (nota) => formatDate(nota.fecha) },
+  ];
+
+  const filters = (
+    <div className="d-flex align-items-end flex-wrap gap-3">
+      <div>
+        <label className="form-label fw-semibold small mb-1">Desde</label>
+        <input
+          type="date"
+          className="form-control"
+          value={fechaDesde}
+          onChange={(e) => setFechaDesde(e.target.value)}
+        />
+      </div>
+      <div>
+        <label className="form-label fw-semibold small mb-1">Hasta</label>
+        <input
+          type="date"
+          className="form-control"
+          value={fechaHasta}
+          min={fechaDesde || undefined}
+          onChange={(e) => setFechaHasta(e.target.value)}
+        />
+      </div>
+      {(fechaDesde || fechaHasta) && (
+        <button
+          type="button"
+          className="btn btn-light fw-semibold"
+          onClick={() => { setFechaDesde(""); setFechaHasta(""); }}
+        >
+          Limpiar filtro
+        </button>
+      )}
+    </div>
+  );
+
   const content = (
     <div className="animate-fadeInUp">
       <div className="page-header d-flex justify-content-between align-items-start flex-wrap gap-3">
@@ -195,118 +226,42 @@ const NotasLists = ({ proyectoId: proyectoIdProp, embedded = false, onClose }) =
         />
       )}
 
-      <div className="d-flex align-items-end flex-wrap gap-3 mb-3">
-        <div>
-          <label className="form-label fw-semibold small mb-1">Desde</label>
-          <input
-            type="date"
-            className="form-control"
-            value={fechaDesde}
-            onChange={(e) => setFechaDesde(e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="form-label fw-semibold small mb-1">Hasta</label>
-          <input
-            type="date"
-            className="form-control"
-            value={fechaHasta}
-            min={fechaDesde || undefined}
-            onChange={(e) => setFechaHasta(e.target.value)}
-          />
-        </div>
-        {(fechaDesde || fechaHasta) && (
-          <button
-            type="button"
-            className="btn btn-light fw-semibold"
-            onClick={() => { setFechaDesde(""); setFechaHasta(""); }}
-          >
-            Limpiar filtro
-          </button>
-        )}
-      </div>
-
-      {error && (
-        <div className="alert alert-danger d-flex align-items-center small rounded-3">
-          <i className="bi bi-exclamation-circle-fill me-2"></i>{error}
-        </div>
-      )}
-
-      <div className="card border-0 rounded-4 overflow-hidden" style={{ boxShadow: "var(--shadow-md)" }}>
-        <div className="table-responsive">
-          <table className="table table-modern mb-0">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Nota</th>
-                <th>Líder</th>
-                <th>Fecha</th>
-                {canManage && <th className="text-end">Acciones</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                Array.from({ length: 4 }).map((_, i) => (
-                  <tr key={i}>
-                    {Array.from({ length: canManage ? 5 : 4 }).map((_, j) => (
-                      <td key={j}><div className="skeleton rounded" style={{ height: 20, width: "80%" }}></div></td>
-                    ))}
-                  </tr>
-                ))
-              ) : filtered.length > 0 ? (
-                filtered.map((nota) => (
-                  <tr key={nota.id_nota} className="animate-fadeIn">
-                    <td className="text-muted fw-bold">#{nota.id_nota}</td>
-                    <td style={{ minWidth: 280 }}>
-                      <div className="d-flex align-items-start gap-2">
-                        <div className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: 32, height: 32, background: "rgba(79,70,229,.1)" }}>
-                          <i className="bi bi-journal-text" style={{ color: "var(--primary)", fontSize: 14 }}></i>
-                        </div>
-                        <span className="text-muted small" style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
-                          {nota.descripcion}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="text-muted small">{nota.nombre_lider || "-"}</td>
-                    <td className="text-muted small">{formatDate(nota.fecha)}</td>
-                    {canManage && (
-                      <td className="text-end">
-                        {Number(nota.id_lider) === Number(user?.id_usuario) && (
-                          <div className="d-flex gap-2 justify-content-end">
-                            <button
-                              className="btn btn-sm btn-success"
-                              title="Editar"
-                              onClick={() => { setEditingNota(nota); setShowForm(true); }}
-                            >
-                              <i className="bi bi-pencil-square"></i>
-                            </button>
-                            <button className="btn btn-sm btn-danger" title="Eliminar" onClick={() => setConfirm(nota)}>
-                              <i className="bi bi-trash-fill"></i>
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    )}
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={canManage ? 5 : 4}>
-                    <div className="empty-state">
-                      <i className="bi bi-journal-text"></i>
-                      <h6>Sin notas</h6>
-                      <p>{canManage ? "Registra la primera nota del proyecto con el botón de arriba." : "Este proyecto aún no tiene notas registradas."}</p>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        columns={columns}
+        data={filtered}
+        loading={loading}
+        error={error}
+        rowKey="id_nota"
+        filters={filters}
+        emptyIcon="bi-journal-text"
+        emptyMessage="Sin notas"
+        renderActions={canManage ? (nota) => (
+          Number(nota.id_lider) === Number(user?.id_usuario) ? (
+            <div className="d-flex gap-2 justify-content-end">
+              <button
+                className="btn btn-sm btn-success"
+                title="Editar"
+                onClick={() => { setEditingNota(nota); setShowForm(true); }}
+              >
+                <i className="bi bi-pencil-square"></i>
+              </button>
+              <button className="btn btn-sm btn-danger" title="Eliminar" onClick={() => setConfirm(nota)}>
+                <i className="bi bi-trash-fill"></i>
+              </button>
+            </div>
+          ) : null
+        ) : undefined}
+      />
 
       {confirm && (
-        <ConfirmModal nota={confirm} onConfirm={handleDelete} onCancel={() => setConfirm(null)} />
+        <ConfirmModal
+          danger
+          title="Eliminar nota"
+          message="¿Deseas eliminar esta nota? Se ocultará del proyecto."
+          confirmLabel={<><i className="bi bi-trash-fill me-2"></i>Eliminar</>}
+          onConfirm={() => handleDelete(confirm)}
+          onCancel={() => setConfirm(null)}
+        />
       )}
     </div>
   );

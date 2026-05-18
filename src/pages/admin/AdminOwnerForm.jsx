@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { getEmpresas } from "../../services/empresaService";
-import api from "../../services/api";
-import { notifySuccess, notifyError } from "../../utils/notify";
+import { createUser, updateUsuario } from "../../services/usuarioService";
+import { notifySuccess } from "../../utils/notify";
 
 const AdminOwnerForm = ({ onSaved, onCancel, owner }) => {
   const isEdit = Boolean(owner);
@@ -36,20 +36,20 @@ const AdminOwnerForm = ({ onSaved, onCancel, owner }) => {
         if (form.password) payload.password = form.password;
         if (form.id_empresa) payload.id_empresa = Number(form.id_empresa);
         payload.is_active = form.is_active === "true";
-        response = await api.put(`/usuarios/${owner.id_usuario}`, payload);
+        response = await updateUsuario(owner.id_usuario, payload);
       } else {
-        response = await api.post("/usuarios", {
+        response = await createUser({
           nombre: form.nombre,
           email: form.email,
           password: form.password,
           id_empresa: Number(form.id_empresa),
         });
       }
-      if (response.data?.success || response.data?.user) {
+      if (response?.success || response?.user) {
         notifySuccess(isEdit ? "Propietario actualizado correctamente." : "Propietario creado correctamente.");
         onSaved?.();
       } else {
-        setError(response.data?.message || "Error al guardar el propietario.");
+        setError(response?.message || "Error al guardar el propietario.");
       }
     } catch (err) {
       const apiMessage = err.response?.data?.message;

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Layout from "../../components/layout/Layout";
+import DataTable from "../../components/ui/DataTable";
 import { getRentabilidadProyectos } from "../../services/proyectoService";
 
 const numberFields = {
@@ -197,6 +198,178 @@ const Rentabilidad = () => {
     setMargenFiltro("");
   };
 
+  const columns = useMemo(() => {
+    const baseColumns = [
+      {
+        header: "Proyecto",
+        render: (project) => (
+          <div className="d-flex align-items-center gap-2">
+            <div
+              className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+              style={{ width: 34, height: 34, background: "rgba(79,70,229,.1)" }}
+            >
+              <i className="bi bi-kanban-fill" style={{ color: "var(--primary)", fontSize: 14 }}></i>
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <span className="fw-semibold d-block text-truncate">{project.nombre || "Proyecto sin nombre"}</span>
+              {project.lider && <span className="text-muted" style={{ fontSize: 11 }}>Líder: {project.lider}</span>}
+            </div>
+          </div>
+        ),
+      },
+      { header: "Servicio", cellClassName: "text-muted small", render: (project) => project.servicio || "—" },
+    ];
+
+    if (available.ingresos) {
+      baseColumns.push({
+        header: "Ingresos",
+        headerClassName: "text-end",
+        cellClassName: "text-end fw-semibold",
+        render: (project) => project.ingresos !== null ? formatMoney(project.ingresos) : "—",
+      });
+    }
+
+    if (available.costos) {
+      baseColumns.push({
+        header: "Costos",
+        headerClassName: "text-end",
+        cellClassName: "text-end",
+        render: (project) => project.costos !== null ? formatMoney(project.costos) : "—",
+      });
+    }
+
+    if (available.utilidad) {
+      baseColumns.push({
+        header: "Utilidad",
+        headerClassName: "text-end",
+        cellClassName: "text-end fw-bold",
+        render: (project) => (
+          <span style={{ color: Number(project.utilidad || 0) >= 0 ? "var(--success)" : "var(--danger)" }}>
+            {project.utilidad !== null ? formatMoney(project.utilidad) : "—"}
+          </span>
+        ),
+      });
+    }
+
+    if (available.margen) {
+      baseColumns.push({
+        header: "Margen",
+        headerClassName: "text-end",
+        cellClassName: "text-end",
+        render: (project) => project.margen !== null ? (() => {
+          const status = getMarginStatus(project.margen);
+          return (
+            <span
+              className="d-inline-flex align-items-center justify-content-end gap-2 fw-bold"
+              title={status.label}
+              style={{
+                minWidth: 72,
+                padding: "5px 9px",
+                borderRadius: 50,
+                color: status.color,
+                background: status.bg,
+                border: `1.5px solid ${status.border}`,
+                fontSize: 12,
+                lineHeight: 1,
+              }}
+            >
+              <i className={`bi ${status.icon}`} style={{ fontSize: 12 }}></i>
+              {formatNumber(project.margen, 1)}%
+            </span>
+          );
+        })() : <span className="text-muted">—</span>,
+      });
+    }
+
+    if (available.horas) {
+      baseColumns.push({
+        header: "Horas",
+        headerClassName: "text-end",
+        cellClassName: "text-end",
+        render: (project) => project.horas !== null ? `${formatNumber(project.horas, 1)}h` : "—",
+      });
+    }
+
+    if (available.fechas) {
+      baseColumns.push({
+        header: "Fechas",
+        cellClassName: "text-muted small",
+        render: (project) => (
+          <>
+            Inicio: {formatDate(project.fecha_inicio)}
+            <br />
+            Fin est.: {formatDate(project.fecha_fin_estimada)}
+            {project.fecha_fin_real && (
+              <>
+                <br />
+                <span className="text-success">Fin real: {formatDate(project.fecha_fin_real)}</span>
+              </>
+            )}
+          </>
+        ),
+      });
+    }
+
+    return baseColumns;
+  }, [available]);
+
+  const filters = (
+    <div className="card border-0 rounded-4 mb-4" style={{ boxShadow: "var(--shadow-md)" }}>
+      <div className="card-body p-3">
+        <div className="row g-2 align-items-end">
+          <div className="col-12 col-lg-4">
+            <label className="form-label small fw-bold text-muted">Proyecto</label>
+            <div className="input-group">
+              <span className="input-group-text bg-white border-end-0">
+                <i className="bi bi-search text-muted"></i>
+              </span>
+              <input
+                type="text"
+                className="form-control border-start-0 ps-0"
+                placeholder="Buscar por proyecto..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {available.fechas && (
+            <>
+              <div className="col-6 col-lg-2">
+                <label className="form-label small fw-bold text-muted">Desde</label>
+                <input type="date" className="form-control" value={fechaDesde} onChange={(e) => setFechaDesde(e.target.value)} />
+              </div>
+              <div className="col-6 col-lg-2">
+                <label className="form-label small fw-bold text-muted">Hasta</label>
+                <input type="date" className="form-control" value={fechaHasta} onChange={(e) => setFechaHasta(e.target.value)} />
+              </div>
+            </>
+          )}
+
+          {available.margen && (
+            <div className="col-12 col-lg-2">
+              <label className="form-label small fw-bold text-muted">Margen</label>
+              <select className="form-select" value={margenFiltro} onChange={(e) => setMargenFiltro(e.target.value)}>
+                <option value="">Todos</option>
+                <option value="alto">30% o más</option>
+                <option value="riesgo">0% a 29.9%</option>
+                <option value="perdida">Pérdida</option>
+                <option value="positivo">Rentable</option>
+              </select>
+            </div>
+          )}
+
+          <div className="col-12 col-lg-2">
+            <button className="btn btn-light w-100 fw-semibold" onClick={clearFilters}>
+              <i className="bi bi-x-circle me-2"></i>
+              Limpiar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <Layout>
       <div className="animate-fadeInUp">
@@ -241,169 +414,17 @@ const Rentabilidad = () => {
           )}
         </div>
 
-        <div className="card border-0 rounded-4 mb-4" style={{ boxShadow: "var(--shadow-md)" }}>
-          <div className="card-body p-3">
-            <div className="row g-2 align-items-end">
-              <div className="col-12 col-lg-4">
-                <label className="form-label small fw-bold text-muted">Proyecto</label>
-                <div className="input-group">
-                  <span className="input-group-text bg-white border-end-0">
-                    <i className="bi bi-search text-muted"></i>
-                  </span>
-                  <input
-                    type="text"
-                    className="form-control border-start-0 ps-0"
-                    placeholder="Buscar por proyecto..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              {available.fechas && (
-                <>
-                  <div className="col-6 col-lg-2">
-                    <label className="form-label small fw-bold text-muted">Desde</label>
-                    <input type="date" className="form-control" value={fechaDesde} onChange={(e) => setFechaDesde(e.target.value)} />
-                  </div>
-                  <div className="col-6 col-lg-2">
-                    <label className="form-label small fw-bold text-muted">Hasta</label>
-                    <input type="date" className="form-control" value={fechaHasta} onChange={(e) => setFechaHasta(e.target.value)} />
-                  </div>
-                </>
-              )}
-
-              {available.margen && (
-                <div className="col-12 col-lg-2">
-                  <label className="form-label small fw-bold text-muted">Margen</label>
-                  <select className="form-select" value={margenFiltro} onChange={(e) => setMargenFiltro(e.target.value)}>
-                    <option value="">Todos</option>
-                    <option value="alto">30% o más</option>
-                    <option value="riesgo">0% a 29.9%</option>
-                    <option value="perdida">Pérdida</option>
-                    <option value="positivo">Rentable</option>
-                  </select>
-                </div>
-              )}
-
-              <div className="col-12 col-lg-2">
-                <button className="btn btn-light w-100 fw-semibold" onClick={clearFilters}>
-                  <i className="bi bi-x-circle me-2"></i>
-                  Limpiar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="card border-0 rounded-4 overflow-hidden" style={{ boxShadow: "var(--shadow-md)" }}>
-          <div className="table-responsive">
-            <table className="table table-modern mb-0" style={{ width: "100%" }}>
-              <thead>
-                <tr>
-                  <th>Proyecto</th>
-                  <th>Servicio</th>
-                  {available.ingresos && <th className="text-end">Ingresos</th>}
-                  {available.costos && <th className="text-end">Costos</th>}
-                  {available.utilidad && <th className="text-end">Utilidad</th>}
-                  {available.margen && <th className="text-end">Margen</th>}
-                  {available.horas && <th className="text-end">Horas</th>}
-                  {available.fechas && <th>Fechas</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={i}>
-                      {Array.from({ length: 8 }).map((__, j) => (
-                        <td key={j}><div className="skeleton rounded" style={{ height: 20, width: "80%" }}></div></td>
-                      ))}
-                    </tr>
-                  ))
-                ) : filtered.length > 0 ? (
-                  filtered.map((project) => (
-                    <tr key={project.id_proyecto || project.id || project.nombre} className="animate-fadeIn">
-                      <td>
-                        <div className="d-flex align-items-center gap-2">
-                          <div
-                            className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
-                            style={{ width: 34, height: 34, background: "rgba(79,70,229,.1)" }}
-                          >
-                            <i className="bi bi-kanban-fill" style={{ color: "var(--primary)", fontSize: 14 }}></i>
-                          </div>
-                          <div style={{ minWidth: 0 }}>
-                            <span className="fw-semibold d-block text-truncate">{project.nombre || "Proyecto sin nombre"}</span>
-                            {project.lider && <span className="text-muted" style={{ fontSize: 11 }}>Líder: {project.lider}</span>}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="text-muted small">{project.servicio || "—"}</td>
-                      {available.ingresos && <td className="text-end fw-semibold">{project.ingresos !== null ? formatMoney(project.ingresos) : "—"}</td>}
-                      {available.costos && <td className="text-end">{project.costos !== null ? formatMoney(project.costos) : "—"}</td>}
-                      {available.utilidad && (
-                        <td className="text-end fw-bold" style={{ color: Number(project.utilidad || 0) >= 0 ? "var(--success)" : "var(--danger)" }}>
-                          {project.utilidad !== null ? formatMoney(project.utilidad) : "—"}
-                        </td>
-                      )}
-                      {available.margen && (
-                        <td className="text-end">
-                          {project.margen !== null ? (() => {
-                            const status = getMarginStatus(project.margen);
-                            return (
-                              <span
-                                className="d-inline-flex align-items-center justify-content-end gap-2 fw-bold"
-                                title={status.label}
-                                style={{
-                                  minWidth: 72,
-                                  padding: "5px 9px",
-                                  borderRadius: 50,
-                                  color: status.color,
-                                  background: status.bg,
-                                  border: `1.5px solid ${status.border}`,
-                                  fontSize: 12,
-                                  lineHeight: 1,
-                                }}
-                              >
-                                <i className={`bi ${status.icon}`} style={{ fontSize: 12 }}></i>
-                                {formatNumber(project.margen, 1)}%
-                              </span>
-                            );
-                          })() : (
-                            <span className="text-muted">—</span>
-                          )}
-                        </td>
-                      )}
-                      {available.horas && <td className="text-end">{project.horas !== null ? `${formatNumber(project.horas, 1)}h` : "—"}</td>}
-                      {available.fechas && (
-                        <td className="text-muted small">
-                          Inicio: {formatDate(project.fecha_inicio)}
-                          <br />
-                          Fin est.: {formatDate(project.fecha_fin_estimada)}
-                          {project.fecha_fin_real && (
-                            <>
-                              <br />
-                              <span className="text-success">Fin real: {formatDate(project.fecha_fin_real)}</span>
-                            </>
-                          )}
-                        </td>
-                      )}
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="8">
-                      <div className="empty-state py-5">
-                        <i className="bi bi-search"></i>
-                        <h6>{proyectos.length === 0 ? "Sin datos de rentabilidad" : "Sin resultados"}</h6>
-                        <p>{proyectos.length === 0 ? "Los proyectos aparecerán aquí cuando existan datos disponibles." : "No se encontraron proyectos con los filtros aplicados."}</p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <DataTable
+          columns={columns}
+          data={filtered}
+          loading={loading}
+          error=""
+          rowKey={(project) => project.id_proyecto || project.id || project.nombre}
+          filters={filters}
+          emptyIcon="bi-search"
+          emptyMessage={proyectos.length === 0 ? "Sin datos de rentabilidad" : "Sin resultados"}
+          rowClassName="animate-fadeIn"
+        />
       </div>
     </Layout>
   );

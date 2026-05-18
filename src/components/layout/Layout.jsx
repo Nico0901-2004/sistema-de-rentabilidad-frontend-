@@ -10,7 +10,7 @@ const Layout = ({ children }) => {
   const handleLogout = () => { logout(); navigate("/login"); };
 
   return (
-    <div className="d-flex" style={{ minHeight: "100vh", background: "var(--bg)" }}>
+    <div className="d-flex" style={{ height: "100vh", overflow: "hidden", background: "var(--bg)" }}>
       <Sidebar />
 
       <div className="flex-grow-1 d-flex flex-column overflow-hidden">
@@ -61,7 +61,7 @@ const Layout = ({ children }) => {
         </header>
 
         {/* Content */}
-        <main className="flex-grow-1 p-4 overflow-auto">{children}</main>
+        <main className="app-main flex-grow-1 p-4">{children}</main>
       </div>
     </div>
   );

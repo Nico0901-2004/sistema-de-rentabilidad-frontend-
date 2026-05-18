@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Layout from "../../components/layout/Layout";
+import DataTable from "../../components/ui/DataTable";
 import { getHorasByLider } from "../../services/horasService";
 
 const HorasList = () => {
@@ -36,6 +37,68 @@ const HorasList = () => {
   });
 
   const totalHoras = filtered.reduce((acc, h) => acc + Number(h.horas || 0), 0);
+
+  const columns = [
+    { header: "#", accessor: "id_registro", cellClassName: "text-muted fw-bold", render: (h) => `#${h.id_registro}` },
+    {
+      header: "Empleado",
+      render: (h) => (
+        <div className="d-flex align-items-center gap-2">
+          <div className="avatar" style={{ width: 30, height: 30, fontSize: 11 }}>
+            {h.empleado_nombre.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()}
+          </div>
+          <span className="fw-semibold small">{h.empleado_nombre}</span>
+        </div>
+      ),
+    },
+    {
+      header: "Proyecto",
+      render: (h) => <span className="badge badge-role badge-lider small">{h.proyecto_nombre}</span>,
+    },
+    {
+      header: "Fecha",
+      cellClassName: "text-muted small",
+      render: (h) => h.fecha ? new Date(h.fecha).toLocaleDateString("es-AR") : "—",
+    },
+    {
+      header: "Horas",
+      render: (h) => (
+        <span className="fw-bold" style={{ color: "var(--primary)" }}>
+          {Number(h.horas).toFixed(1)}h
+        </span>
+      ),
+    },
+    {
+      header: "Descripción",
+      cellClassName: "text-muted small",
+      cellStyle: { maxWidth: 250 },
+      render: (h) => <span className="text-truncate d-block">{h.descripcion || "—"}</span>,
+    },
+  ];
+
+  const filters = (
+    <div className="d-flex flex-wrap gap-3">
+      <div className="input-group" style={{ maxWidth: 300 }}>
+        <span className="input-group-text bg-white border-end-0">
+          <i className="bi bi-search text-muted"></i>
+        </span>
+        <input type="text" className="form-control border-start-0 ps-0"
+          placeholder="Buscar empleado, proyecto..."
+          value={search} onChange={(e) => setSearch(e.target.value)} />
+      </div>
+      <select
+        className="form-select"
+        style={{ maxWidth: 220 }}
+        value={filterProyecto}
+        onChange={(e) => setFilterProyecto(e.target.value)}
+      >
+        <option value="">— Todos los proyectos —</option>
+        {proyectosUnicos.map(([id, nombre]) => (
+          <option key={id} value={String(id)}>{nombre}</option>
+        ))}
+      </select>
+    </div>
+  );
 
   return (
     <Layout>
@@ -81,99 +144,17 @@ const HorasList = () => {
           ))}
         </div>
 
-        {/* Filtros */}
-        <div className="d-flex flex-wrap gap-3 mb-3">
-          <div className="input-group" style={{ maxWidth: 300 }}>
-            <span className="input-group-text bg-white border-end-0">
-              <i className="bi bi-search text-muted"></i>
-            </span>
-            <input type="text" className="form-control border-start-0 ps-0"
-              placeholder="Buscar empleado, proyecto..."
-              value={search} onChange={(e) => setSearch(e.target.value)} />
-          </div>
-          <select
-            className="form-select"
-            style={{ maxWidth: 220 }}
-            value={filterProyecto}
-            onChange={(e) => setFilterProyecto(e.target.value)}
-          >
-            <option value="">— Todos los proyectos —</option>
-            {proyectosUnicos.map(([id, nombre]) => (
-              <option key={id} value={String(id)}>{nombre}</option>
-            ))}
-          </select>
-        </div>
-
-        {error && (
-          <div className="alert alert-danger d-flex align-items-center small rounded-3">
-            <i className="bi bi-exclamation-circle-fill me-2"></i>{error}
-          </div>
-        )}
-
-        {/* Table */}
-        <div className="card border-0 rounded-4 overflow-hidden" style={{ boxShadow: "var(--shadow-md)" }}>
-          <div className="table-responsive">
-            <table className="table table-modern mb-0">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Empleado</th>
-                  <th>Proyecto</th>
-                  <th>Fecha</th>
-                  <th>Horas</th>
-                  <th>Descripción</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={i}>{Array.from({ length: 6 }).map((_, j) => (
-                      <td key={j}><div className="skeleton rounded" style={{ height: 20, width: "80%" }}></div></td>
-                    ))}</tr>
-                  ))
-                ) : filtered.length > 0 ? (
-                  filtered.map((h) => (
-                    <tr key={h.id_registro} className="animate-fadeIn">
-                      <td className="text-muted fw-bold">#{h.id_registro}</td>
-                      <td>
-                        <div className="d-flex align-items-center gap-2">
-                          <div className="avatar" style={{ width: 30, height: 30, fontSize: 11 }}>
-                            {h.empleado_nombre.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()}
-                          </div>
-                          <span className="fw-semibold small">{h.empleado_nombre}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <span className="badge badge-role badge-lider small">{h.proyecto_nombre}</span>
-                      </td>
-                      <td className="text-muted small">
-                        {h.fecha ? new Date(h.fecha).toLocaleDateString("es-AR") : "—"}
-                      </td>
-                      <td>
-                        <span className="fw-bold" style={{ color: "var(--primary)" }}>
-                          {Number(h.horas).toFixed(1)}h
-                        </span>
-                      </td>
-                      <td className="text-muted small" style={{ maxWidth: 250 }}>
-                        <span className="text-truncate d-block">{h.descripcion || "—"}</span>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="6">
-                      <div className="empty-state">
-                        <i className="bi bi-clock-history"></i>
-                        <h6>Sin registros de horas</h6>
-                        <p>Cuando los empleados registren horas, aparecerán aquí.</p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <DataTable
+          columns={columns}
+          data={filtered}
+          loading={loading}
+          error={error}
+          rowKey="id_registro"
+          filters={filters}
+          emptyIcon="bi-clock-history"
+          emptyMessage="Sin registros de horas"
+          skeletonRows={5}
+        />
       </div>
     </Layout>
   );

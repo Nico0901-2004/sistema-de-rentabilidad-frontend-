@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { login } from "../../services/authService";
+import { getOwnerContact, login } from "../../services/authService";
 import { useAuth } from "../../context/AuthContext";
-import api from "../../services/api";
 
 /* ── Animated background blobs ──────────────────────── */
 const AnimatedBg = () => (
@@ -66,9 +65,9 @@ const ForgotPasswordModal = ({ onClose }) => {
     e.preventDefault();
     setError(""); setResult(null); setLoading(true);
     try {
-      const res = await api.post("/auth/get-owner-contact", { email });
-      if (res.data?.success) setResult(res.data.data);
-      else setError(res.data?.message || "No se pudo obtener el contacto.");
+      const res = await getOwnerContact(email);
+      if (res?.success) setResult(res.data);
+      else setError(res?.message || "No se pudo obtener el contacto.");
     } catch (err) {
       setError(err.response?.data?.message || "No se encontró ninguna cuenta con ese correo.");
     } finally {

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Layout from "../../components/layout/Layout";
+import DataTable from "../../components/ui/DataTable";
 import HorasForm from "./HorasForm";
 import { getMisHoras, deleteHora } from "../../services/horasService";
 import { notifyInfo, notifySuccess, notifyError } from "../../utils/notify";
@@ -153,6 +154,66 @@ const MisHorasList = () => {
     }
   };
 
+  const columns = [
+    {
+      header: "Fecha",
+      cellClassName: "small text-muted",
+      render: (registro) => registro.fecha ? new Date(registro.fecha).toLocaleDateString() : "-",
+    },
+    {
+      header: "Proyecto",
+      render: (registro) => (
+        <div className="d-flex align-items-center gap-2">
+          <div className="rounded-3 d-flex align-items-center justify-content-center"
+            style={{ width: 30, height: 30, background: "rgba(79,70,229,.1)" }}>
+            <i className="bi bi-kanban" style={{ color: "var(--primary)", fontSize: 13 }}></i>
+          </div>
+          <span className="fw-semibold">
+            {registro.proyecto_nombre ?? registro.proyecto ?? "-"}
+          </span>
+        </div>
+      ),
+    },
+    {
+      header: "Fase",
+      render: (registro) => (
+        <span className="badge rounded-pill" style={{ background: "rgba(6,182,212,.12)", color: "var(--accent)" }}>
+          {registro.fase_nombre ?? registro.fase ?? "-"}
+        </span>
+      ),
+    },
+    {
+      header: "Descripción",
+      cellClassName: "text-muted small",
+      cellStyle: { maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+      render: (registro) => registro.descripcion || <span className="text-light-muted italic">Sin descripción</span>,
+    },
+    {
+      header: "Horas",
+      render: (registro) => (
+        <span className="fw-bold" style={{ color: "var(--primary)" }}>
+          {registro.horas.toFixed(1)}h
+        </span>
+      ),
+    },
+  ];
+
+  const filters = (
+    <div className="d-flex flex-wrap gap-3">
+      <select
+        className="form-select"
+        style={{ maxWidth: 260 }}
+        value={filterFase}
+        onChange={(e) => setFilterFase(e.target.value)}
+      >
+        <option value="">- Todas las fases -</option>
+        {fasesUnicas.map(([id, nombre]) => (
+          <option key={id} value={id}>{nombre}</option>
+        ))}
+      </select>
+    </div>
+  );
+
   return (
     <Layout>
       <div className="animate-fadeInUp">
@@ -183,20 +244,6 @@ const MisHorasList = () => {
             {error}
           </div>
         )}
-
-        <div className="d-flex flex-wrap gap-3 mb-3">
-          <select
-            className="form-select"
-            style={{ maxWidth: 260 }}
-            value={filterFase}
-            onChange={(e) => setFilterFase(e.target.value)}
-          >
-            <option value="">- Todas las fases -</option>
-            {fasesUnicas.map(([id, nombre]) => (
-              <option key={id} value={id}>{nombre}</option>
-            ))}
-          </select>
-        </div>
 
         <div className="row g-3 mb-3">
           <div className="col-12 col-sm-6">
@@ -229,97 +276,27 @@ const MisHorasList = () => {
           </div>
         </div>
 
-        <div className="card border-0 rounded-4 overflow-hidden" style={{ boxShadow: "var(--shadow-md)" }}>
-          <div className="table-responsive">
-            <table className="table table-modern mb-0">
-              <thead>
-                <tr>
-                  <th>Fecha</th>
-                  <th>Proyecto</th>
-                  <th>Fase</th>
-                  <th>Descripción</th>
-                  <th>Horas</th>
-                  <th className="text-end">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  Array.from({ length: 4 }).map((_, i) => (
-                    <tr key={i}>
-                      {Array.from({ length: 6 }).map((__, j) => (
-                        <td key={j}>
-                          <div className="skeleton rounded" style={{ height: 20, width: "90%" }}></div>
-                        </td>
-                      ))}
-                    </tr>
-                  ))
-                ) : registrosFiltrados.length > 0 ? (
-                  registrosFiltrados.map((registro, index) => (
-                    <tr key={getRegistroId(registro, index)} className="animate-fadeIn">
-                      <td className="small text-muted">
-                        {registro.fecha ? new Date(registro.fecha).toLocaleDateString() : "-"}
-                      </td>
-                      <td>
-                        <div className="d-flex align-items-center gap-2">
-                          <div className="rounded-3 d-flex align-items-center justify-content-center"
-                            style={{ width: 30, height: 30, background: "rgba(79,70,229,.1)" }}>
-                            <i className="bi bi-kanban" style={{ color: "var(--primary)", fontSize: 13 }}></i>
-                          </div>
-                          <span className="fw-semibold">
-                            {registro.proyecto_nombre ?? registro.proyecto ?? "-"}
-                          </span>
-                        </div>
-                      </td>
-                      <td>
-                        <span className="badge rounded-pill" style={{ background: "rgba(6,182,212,.12)", color: "var(--accent)" }}>
-                          {registro.fase_nombre ?? registro.fase ?? "-"}
-                        </span>
-                      </td>
-                      <td className="text-muted small" style={{ maxWidth: "250px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {registro.descripcion || <span className="text-light-muted italic">Sin descripción</span>}
-                      </td>
-                      <td>
-                        <span className="fw-bold" style={{ color: "var(--primary)" }}>
-                          {registro.horas.toFixed(1)}h
-                        </span>
-                      </td>
-                      <td className="text-end">
-                        <div className="d-flex gap-2 justify-content-end">
-                          <button 
-                            className="btn btn-sm btn-success shadow-sm" 
-                            type="button" 
-                            title="Editar registro"
-                            onClick={() => handleEditClick(registro.id_registro)}
-                          >
-                            <i className="bi bi-pencil-square"></i>
-                          </button>
-                          <button 
-                            className="btn btn-sm btn-danger shadow-sm" 
-                            type="button" 
-                            title="Eliminar registro"
-                            onClick={() => handleDeleteClick(registro.id_registro)}
-                          >
-                            <i className="bi bi-trash-fill"></i>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="6">
-                      <div className="empty-state">
-                        <i className="bi bi-clock-history"></i>
-                        <h6>Sin horas registradas</h6>
-                        <p>No se encontraron registros de tiempos para mostrar.</p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <DataTable
+          columns={columns}
+          data={registrosFiltrados}
+          loading={loading}
+          error=""
+          rowKey={(registro, index) => getRegistroId(registro, index)}
+          filters={filters}
+          emptyIcon="bi-clock-history"
+          emptyMessage="Sin horas registradas"
+          rowClassName="animate-fadeIn"
+          renderActions={(registro) => (
+            <div className="d-flex gap-2 justify-content-end">
+              <button className="btn btn-sm btn-success shadow-sm" type="button" title="Editar registro" onClick={() => handleEditClick(registro.id_registro)}>
+                <i className="bi bi-pencil-square"></i>
+              </button>
+              <button className="btn btn-sm btn-danger shadow-sm" type="button" title="Eliminar registro" onClick={() => handleDeleteClick(registro.id_registro)}>
+                <i className="bi bi-trash-fill"></i>
+              </button>
+            </div>
+          )}
+        />
       </div>
 
       {showForm && (

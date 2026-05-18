@@ -24,8 +24,3 @@ export const updateEmpresa = async(id, empresaData) => {
     return response.data;
 };
 
-// DELETE /empresas/:id
-export const deleteEmpresa = async(id) => {
-    const response = await api.delete(`/empresas/${id}`);
-    return response.data;
-};

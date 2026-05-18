@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import FormActions from "../../components/ui/FormActions";
+import FormField from "../../components/ui/FormField";
 import { createFase, getFaseById, updateFase } from "../../services/faseService";
 import { notifySuccess, notifyError } from "../../utils/notify"; // Importación corregida
 
@@ -116,56 +118,38 @@ const FasesForm = ({ faseId, proyectoId, onSaved, onCancel }) => {
 
         <form onSubmit={handleSubmit}>
           <div className="row g-3">
-            <div className="col-12 col-md-8">
-              <label className="form-label fw-semibold small">Nombre de la fase *</label>
-              <input
-                type="text"
-                name="nombre"
-                value={form.nombre}
-                onChange={handleChange}
-                className={`form-control ${error && error.includes("nombre") ? "is-invalid" : ""}`}
-                placeholder="Ej: Diseño de Interfaz"
-                required
-              />
-            </div>
+            <FormField
+              className="col-12 col-md-8"
+              label="Nombre de la fase *"
+              type="text"
+              name="nombre"
+              value={form.nombre}
+              onChange={handleChange}
+              error={error && error.includes("nombre")}
+              placeholder="Ej: Diseño de Interfaz"
+              required
+            />
 
-            <div className="col-12 col-md-4">
-              <label className="form-label fw-semibold small">Horas estimadas *</label>
-              <input
-                type="number"
-                name="horas_estimadas"
-                value={form.horas_estimadas}
-                onChange={handleChange}
-                className={`form-control ${error && error.includes("horas") ? "is-invalid" : ""}`}
-                min="0.1"
-                step="0.1"
-                placeholder="0.0"
-                required
-              />
-            </div>
+            <FormField
+              className="col-12 col-md-4"
+              label="Horas estimadas *"
+              type="number"
+              name="horas_estimadas"
+              value={form.horas_estimadas}
+              onChange={handleChange}
+              error={error && error.includes("horas")}
+              min="0.1"
+              step="0.1"
+              placeholder="0.0"
+              required
+            />
           </div>
 
-          <div className="d-flex gap-2 mt-4">
-            <button 
-              type="button" 
-              className="btn btn-light fw-semibold px-4" 
-              onClick={onCancel} 
-              disabled={loading}
-            >
-              Cancelar
-            </button>
-            <button 
-              type="submit" 
-              className="btn btn-primary flex-fill fw-bold" 
-              disabled={loading}
-            >
-              {loading ? (
-                <><span className="spinner-border spinner-border-sm me-2"></span>Guardando...</>
-              ) : (
-                faseId ? "Actualizar fase" : "Crear fase"
-              )}
-            </button>
-          </div>
+          <FormActions
+            onCancel={onCancel}
+            loading={loading}
+            submitLabel={faseId ? "Actualizar fase" : "Crear fase"}
+          />
         </form>
       </div>
     </div>

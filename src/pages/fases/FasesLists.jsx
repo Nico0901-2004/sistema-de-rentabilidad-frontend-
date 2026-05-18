@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Layout from "../../components/layout/Layout";
+import DataTable from "../../components/ui/DataTable";
 import { useAuth } from "../../context/AuthContext";
 import { getProyectoById } from "../../services/proyectoService";
 import { getFasesByProyecto } from "../../services/faseService";
@@ -150,6 +151,54 @@ const FasesLists = ({ proyectoId: proyectoIdProp, embedded = false, onClose, onC
     setShowForm(true);
   };
 
+  const columns = [
+    { header: "#", accessor: "id_fase", cellClassName: "text-muted fw-bold", render: (fase) => `#${fase.id_fase}` },
+    {
+      header: "Fase",
+      render: (fase) => (
+        <div className="d-flex align-items-center gap-2">
+          <div className="rounded-3 d-flex align-items-center justify-content-center" style={{ width: 32, height: 32, background: "rgba(79,70,229,.1)", flexShrink: 0 }}>
+            <i className="bi bi-layers" style={{ color: "var(--primary)", fontSize: 14 }}></i>
+          </div>
+          <span className="fw-semibold">{fase.nombre}</span>
+        </div>
+      ),
+    },
+    {
+      header: "Horas estimadas",
+      cellClassName: "text-muted small",
+      render: (fase) => `${Number(fase.horas_estimadas || 0).toFixed(1)}h`,
+    },
+    {
+      header: "Horas registradas",
+      cellClassName: "small fw-bold",
+      cellStyle: { color: "var(--primary)" },
+      render: (fase) => `${Number(getHorasRegistradas(fase) || 0).toFixed(1)}h`,
+    },
+  ];
+
+  const filters = (
+    <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
+      <div className="input-group" style={{ maxWidth: 360 }}>
+        <span className="input-group-text bg-white border-end-0">
+          <i className="bi bi-search text-muted"></i>
+        </span>
+        <input
+          type="text"
+          className="form-control border-start-0 ps-0"
+          placeholder="Buscar fase..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+
+      <select className="form-select" style={{ maxWidth: 180 }} value={orderBy} onChange={(e) => setOrderBy(e.target.value)}>
+        <option value="fecha">Más recientes</option>
+        <option value="nombre">Nombre A-Z</option>
+      </select>
+    </div>
+  );
+
   const content = (
     <div className="animate-fadeInUp">
       <div className="page-header d-flex justify-content-between align-items-start flex-wrap gap-3">
@@ -219,100 +268,26 @@ const FasesLists = ({ proyectoId: proyectoIdProp, embedded = false, onClose, onC
         />
       )}
 
-      <div className="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
-        <div className="input-group" style={{ maxWidth: 360 }}>
-          <span className="input-group-text bg-white border-end-0">
-            <i className="bi bi-search text-muted"></i>
-          </span>
-          <input
-            type="text"
-            className="form-control border-start-0 ps-0"
-            placeholder="Buscar fase..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-
-        <select className="form-select" style={{ maxWidth: 180 }} value={orderBy} onChange={(e) => setOrderBy(e.target.value)}>
-          <option value="fecha">Más recientes</option>
-          <option value="nombre">Nombre A-Z</option>
-        </select>
-      </div>
-
-      {error && (
-        <div className="alert alert-danger d-flex align-items-center small rounded-3">
-          <i className="bi bi-exclamation-circle-fill me-2"></i>{error}
-        </div>
-      )}
-
-      <div className="card border-0 rounded-4 overflow-hidden" style={{ boxShadow: "var(--shadow-md)" }}>
-        <div className="table-responsive">
-          <table className="table table-modern mb-0">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Fase</th>
-                <th>Horas estimadas</th>
-                <th>Horas registradas</th>
-                {canManage && <th className="text-end">Acciones</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                Array.from({ length: 4 }).map((_, i) => (
-                  <tr key={i}>
-                    {Array.from({ length: canManage ? 5 : 4 }).map((_, j) => (
-                      <td key={j}><div className="skeleton rounded" style={{ height: 20, width: "80%" }}></div></td>
-                    ))}
-                  </tr>
-                ))
-              ) : filtered.length > 0 ? (
-                filtered.map((fase) => (
-                  <tr key={fase.id_fase} className="animate-fadeIn">
-                    <td className="text-muted fw-bold">#{fase.id_fase}</td>
-                    <td>
-                      <div className="d-flex align-items-center gap-2">
-                        <div className="rounded-3 d-flex align-items-center justify-content-center" style={{ width: 32, height: 32, background: "rgba(79,70,229,.1)", flexShrink: 0 }}>
-                          <i className="bi bi-layers" style={{ color: "var(--primary)", fontSize: 14 }}></i>
-                        </div>
-                        <span className="fw-semibold">{fase.nombre}</span>
-                      </div>
-                    </td>
-                    <td className="text-muted small">
-                      {Number(fase.horas_estimadas || 0).toFixed(1)}h
-                    </td>
-                    <td className="small fw-bold" style={{ color: "var(--primary)" }}>
-                      {Number(getHorasRegistradas(fase) || 0).toFixed(1)}h
-                    </td>
-                    {canManage && (
-                      <td className="text-end">
-                        <div className="d-flex gap-2 justify-content-end">
-                          <button className="btn btn-sm btn-success" title="Editar" onClick={() => handleEdit(fase.id_fase)}>
-                            <i className="bi bi-pencil-square"></i>
-                          </button>
-                          <button className="btn btn-sm btn-danger" title="El backend aún no expone eliminación de fases" disabled>
-                            <i className="bi bi-trash-fill"></i>
-                          </button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={canManage ? 5 : 4}>
-                    <div className="empty-state">
-                      <i className="bi bi-layers"></i>
-                      <h6>Sin fases</h6>
-                      <p>{canManage ? "Crea la primera fase del proyecto con el botón de arriba." : "Este proyecto aún no tiene fases registradas."}</p>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        columns={columns}
+        data={filtered}
+        loading={loading}
+        error={error}
+        rowKey="id_fase"
+        filters={filters}
+        emptyIcon="bi-layers"
+        emptyMessage="Sin fases"
+        renderActions={canManage ? (fase) => (
+          <div className="d-flex gap-2 justify-content-end">
+            <button className="btn btn-sm btn-success" title="Editar" onClick={() => handleEdit(fase.id_fase)}>
+              <i className="bi bi-pencil-square"></i>
+            </button>
+            <button className="btn btn-sm btn-danger" title="El backend aún no expone eliminación de fases" disabled>
+              <i className="bi bi-trash-fill"></i>
+            </button>
+          </div>
+        ) : undefined}
+      />
     </div>
   );
 

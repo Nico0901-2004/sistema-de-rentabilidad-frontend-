@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import FormActions from "../../components/ui/FormActions";
+import TextAreaField from "../../components/ui/TextAreaField";
 import { createNota, updateNota } from "../../services/notaService";
 import { notifySuccess, notifyError } from "../../utils/notify"; // Importación de utilidades de feedback
 
@@ -109,20 +111,19 @@ const NotasForm = ({ nota, proyectoId, onSaved, onCancel }) => {
         )}
 
         <form onSubmit={handleSubmit}>
-          <div className="mb-2">
-            <label className="form-label fw-semibold small">Descripción de la nota *</label>
-            <textarea
-              name="descripcion"
-              value={form.descripcion}
-              onChange={handleChange}
-              className={`form-control ${error ? "is-invalid" : ""}`}
-              rows={5}
-              maxLength={MAX_CARACTERES}
-              placeholder="Escribe aquí las observaciones..."
-              required
-              disabled={loading}
-            />
-          </div>
+          <TextAreaField
+            className="mb-2"
+            label="Descripción de la nota *"
+            name="descripcion"
+            value={form.descripcion}
+            onChange={handleChange}
+            error={error}
+            rows={5}
+            maxLength={MAX_CARACTERES}
+            placeholder="Escribe aquí las observaciones..."
+            required
+            disabled={loading}
+          />
 
           {/* Contador de caracteres dinámico (Criterio Técnico) */}
           <div className="d-flex justify-content-end mb-3">
@@ -131,18 +132,13 @@ const NotasForm = ({ nota, proyectoId, onSaved, onCancel }) => {
             </span>
           </div>
 
-          <div className="d-flex gap-2">
-            <button type="button" className="btn btn-light fw-semibold px-4" onClick={onCancel} disabled={loading}>
-              Cancelar
-            </button>
-            <button type="submit" className="btn btn-warning flex-fill fw-bold text-dark" disabled={loading}>
-              {loading ? (
-                <><span className="spinner-border spinner-border-sm me-2"></span>Procesando...</>
-              ) : (
-                nota?.id_nota ? "Actualizar nota" : "Guardar nota"
-              )}
-            </button>
-          </div>
+          <FormActions
+            onCancel={onCancel}
+            loading={loading}
+            loadingLabel="Procesando..."
+            submitLabel={nota?.id_nota ? "Actualizar nota" : "Guardar nota"}
+            submitClassName="btn btn-warning flex-fill fw-bold text-dark"
+          />
         </form>
       </div>
     </div>

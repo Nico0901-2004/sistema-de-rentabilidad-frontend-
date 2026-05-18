@@ -17,6 +17,11 @@ export const getUsuarioById = async (id) => {
   return { success: true, data: usuario };
 };
 
+export const getPropietarios = async () => {
+  const response = await api.get("/usuarios/propietarios");
+  return response.data;
+};
+
 export const createUser = async (data) => {
   const response = await api.post("/usuarios", data);
   return response.data;
@@ -37,7 +42,3 @@ export const deleteUsuario = async (id) => {
   return response.data;
 };
 
-export const hardDeleteUsuario = async (id) => {
-  const response = await api.delete(`/usuarios/${id}/permanente`);
-  return response.data;
-};

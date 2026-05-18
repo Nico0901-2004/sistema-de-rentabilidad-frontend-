@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Layout from "../../components/layout/Layout";
 import EmpresaForm from "./EmpresaForm";
-import { getEmpresas, deleteEmpresa } from "../../services/empresaService";
-import api from "../../services/api";
+import { getEmpresas } from "../../services/empresaService";
+import { getPropietarios } from "../../services/usuarioService";
 
 const EmpresaList = () => {
   const [empresas, setEmpresas] = useState([]);
@@ -22,10 +22,7 @@ const EmpresaList = () => {
 
       const [empRes, ownerRes] = await Promise.all([
         getEmpresas(),
-        api
-          .get("/usuarios/propietarios")
-          .then((r) => r.data)
-          .catch(() => ({ data: [] })),
+        getPropietarios().catch(() => ({ data: [] })),
       ]);
 
       if (empRes?.success) setEmpresas(empRes.data);
@@ -42,22 +39,6 @@ const EmpresaList = () => {
   }, [fetchData]);
 
   const ownerOf = (id_empresa) => owners.find((o) => String(o.id_empresa) === String(id_empresa));
-
-  const handleDelete = async (id) => {
-    if (
-      !window.confirm(
-        "¿Eliminar esta empresa? Esta acción no se puede deshacer."
-      )
-    )
-      return;
-
-    try {
-      await deleteEmpresa(id);
-      fetchData();
-    } catch (err) {
-      setError(err.response?.data?.message || "Error al eliminar la empresa.");
-    }
-  };
 
   // ✅ filtro usando empresa_nombre (que es lo que viene del backend)
   const filtered = empresas.filter((e) =>
@@ -273,14 +254,6 @@ const EmpresaList = () => {
                         >
                           <i className="bi bi-pencil-square me-1"></i>Editar
                         </button>
-
-                        {/*BOTÓN PARA BORRAR
-                        <button
-                          className="btn btn-sm btn-danger"
-                          onClick={() => handleDelete(empresa.id_empresa)}
-                        >
-                          <i className="bi bi-trash3"></i>
-                        </button>*/}
                       </div>
                     </div>
                   </div>
