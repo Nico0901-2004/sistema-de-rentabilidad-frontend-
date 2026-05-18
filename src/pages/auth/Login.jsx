@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getOwnerContact, login } from "../../services/authService";
 import { useAuth } from "../../context/AuthContext";
@@ -146,31 +146,181 @@ const ForgotPasswordModal = ({ onClose }) => {
 };
 
 /* ── Login ────────────────────────────────────────── */
+const LOGIN_LOCKOUT_KEY = "login_attempts_lockout";
+const MAX_FAILED_ATTEMPTS = 3;
+const LOCKOUT_MS = 5 * 60 * 1000;
+const FAILED_ATTEMPT_WINDOW_MS = 5 * 60 * 1000;
+const LOCKOUT_ERROR_PREFIX = "Demasiados intentos fallidos.";
+const normalizeEmail = (email) => email.trim().toLowerCase();
+
+const getStoredAttempts = () => {
+  try {
+    return JSON.parse(localStorage.getItem(LOGIN_LOCKOUT_KEY)) || {};
+  } catch {
+    return {};
+  }
+};
+
+const saveStoredAttempts = (attempts) => {
+  localStorage.setItem(LOGIN_LOCKOUT_KEY, JSON.stringify(attempts));
+};
+
+const getLockUntil = (email) => {
+  if (!email) return 0;
+  const attempts = getStoredAttempts();
+  const lockedUntil = attempts[email]?.lockedUntil || 0;
+
+  if (lockedUntil && lockedUntil <= Date.now()) {
+    delete attempts[email];
+    saveStoredAttempts(attempts);
+    return 0;
+  }
+
+  return lockedUntil;
+};
+
+const registerFailedLogin = (email) => {
+  if (!email) return 0;
+
+  const attempts = getStoredAttempts();
+  const current = attempts[email] || { count: 0, lockedUntil: 0 };
+  const lastFailedAt = current.lastFailedAt || 0;
+  const attemptsExpired = !lastFailedAt || Date.now() - lastFailedAt >= FAILED_ATTEMPT_WINDOW_MS;
+  const currentCount = attemptsExpired ? 0 : current.count;
+  const nextCount = current.lockedUntil > Date.now() ? current.count : currentCount + 1;
+  const lockedUntil = nextCount >= MAX_FAILED_ATTEMPTS ? Date.now() + LOCKOUT_MS : 0;
+
+  attempts[email] = { count: nextCount, lockedUntil, lastFailedAt: Date.now() };
+  saveStoredAttempts(attempts);
+  return { count: nextCount, lockedUntil };
+};
+
+const registerLockUntil = (email, lockedUntil) => {
+  if (!email || !lockedUntil) return 0;
+
+  const lockedUntilTime = typeof lockedUntil === "number" ? lockedUntil : new Date(lockedUntil).getTime();
+  if (!Number.isFinite(lockedUntilTime) || lockedUntilTime <= Date.now()) return 0;
+
+  const attempts = getStoredAttempts();
+  attempts[email] = { count: MAX_FAILED_ATTEMPTS, lockedUntil: lockedUntilTime, lastFailedAt: Date.now() };
+  saveStoredAttempts(attempts);
+  return lockedUntilTime;
+};
+
+const clearFailedLogin = (email) => {
+  if (!email) return;
+  const attempts = getStoredAttempts();
+  delete attempts[email];
+  saveStoredAttempts(attempts);
+};
+
+const formatRemainingTime = (milliseconds) => {
+  const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
+  const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
+  return `${minutes}:${seconds}`;
+};
+
+const isLockoutError = (message) => message.startsWith(LOCKOUT_ERROR_PREFIX);
+const isLoginAttemptError = (message) => Boolean(message);
+const buildFailedAttemptMessage = (failedAttempts, maxFailedAttempts) => {
+  if (!failedAttempts || !maxFailedAttempts) return "Credenciales incorrectas.";
+  if (failedAttempts >= maxFailedAttempts) return "Demasiados intentos fallidos. Intenta nuevamente más tarde.";
+  return `Credenciales incorrectas. Vas ${failedAttempts} intento${failedAttempts === 1 ? "" : "s"} fallido${failedAttempts === 1 ? "" : "s"}; al tercer intento se bloqueará por 5 minutos.`;
+};
+
 const Login = () => {
   const [formData, setFormData]     = useState({ email: "", password: "" });
   const [error, setError]           = useState("");
   const [loading, setLoading]       = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
+  const [lockedUntil, setLockedUntil] = useState(0);
+  const [now, setNow] = useState(Date.now());
   const navigate = useNavigate();
   const auth = useAuth();
+  const normalizedEmail = useMemo(() => normalizeEmail(formData.email), [formData.email]);
+  const isLocked = lockedUntil > now;
+  const remainingTime = formatRemainingTime(lockedUntil - now);
 
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  useEffect(() => {
+    const activeLock = getLockUntil(normalizedEmail);
+    setLockedUntil(activeLock);
+
+    if (!normalizedEmail || !activeLock) {
+      setError((currentError) => (isLoginAttemptError(currentError) ? "" : currentError));
+    }
+  }, [normalizedEmail]);
+
+  useEffect(() => {
+    if (!isLocked) return;
+
+    const timer = setInterval(() => {
+      const currentTime = Date.now();
+      setNow(currentTime);
+
+      if (lockedUntil <= currentTime) {
+        clearFailedLogin(normalizedEmail);
+        setLockedUntil(0);
+        setError((currentError) => (isLockoutError(currentError) ? "" : currentError));
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isLocked, lockedUntil, normalizedEmail]);
+
+  const handleChange = (e) => {
+    setError("");
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     if (!formData.email || !formData.password) { setError("Por favor, completa todos los campos."); return; }
+    const activeLock = getLockUntil(normalizedEmail);
+    if (activeLock > Date.now()) {
+      setLockedUntil(activeLock);
+      setNow(Date.now());
+      setError(`Demasiados intentos fallidos. Intenta nuevamente en ${formatRemainingTime(activeLock - Date.now())}.`);
+      return;
+    }
+
     try {
       setLoading(true);
       const data = await login(formData);
+      clearFailedLogin(normalizedEmail);
       auth.login(data.token, data.user);
       const destinos = { admin: "/admin-dashboard", propietario: "/dashboard", lider: "/panel-lider", empleado: "/mi-espacio" };
       navigate(destinos[data.user?.rol] || "/dashboard");
     } catch (err) {
       const status = err.response?.status;
-      if (status === 401 || status === 403) {
-        setError(err.response?.data?.message || "Credenciales incorrectas.");
+      if (status === 423) {
+        const retryAfterSeconds = err.response?.data?.retryAfterSeconds;
+        const apiLockedUntil = err.response?.data?.lockedUntil;
+        const fallbackLockedUntil = retryAfterSeconds ? Date.now() + retryAfterSeconds * 1000 : 0;
+        const newLockedUntil = registerLockUntil(normalizedEmail, apiLockedUntil || fallbackLockedUntil);
+
+        setLockedUntil(newLockedUntil);
+        setNow(Date.now());
+        setError(
+          newLockedUntil
+            ? `Demasiados intentos fallidos. Intenta nuevamente en ${formatRemainingTime(newLockedUntil - Date.now())}.`
+            : err.response?.data?.message || "Demasiados intentos fallidos. Intenta nuevamente más tarde."
+        );
+      } else if (status === 401) {
+        const apiFailedAttempts = err.response?.data?.failedAttempts;
+        const apiMaxFailedAttempts = err.response?.data?.maxFailedAttempts || MAX_FAILED_ATTEMPTS;
+        const localAttempt = registerFailedLogin(normalizedEmail);
+        const failedAttempts = apiFailedAttempts || localAttempt.count;
+
+        setLockedUntil(localAttempt.lockedUntil);
+        setNow(Date.now());
+        setError(
+          localAttempt.lockedUntil
+            ? `Demasiados intentos fallidos. Intenta nuevamente en ${formatRemainingTime(localAttempt.lockedUntil - Date.now())}.`
+            : buildFailedAttemptMessage(failedAttempts, apiMaxFailedAttempts)
+        );
       } else if (!err.response || status >= 500) {
         setError("Error de servidor");
       } else {
@@ -216,9 +366,9 @@ const Login = () => {
               <p style={{ margin: "0.25rem 0 0", color: "#64748b", fontSize: 14 }}>Ingresa tus credenciales para continuar</p>
             </div>
 
-            {error && (
+            {(error || isLocked) && (
               <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "0.6rem 1rem", marginBottom: "1.25rem", color: "#dc2626", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
-                <i className="bi bi-exclamation-circle-fill"></i>{error}
+                <i className="bi bi-exclamation-circle-fill"></i>{isLocked ? `Demasiados intentos fallidos. Intenta nuevamente en ${remainingTime}.` : error}
               </div>
             )}
 
@@ -265,18 +415,20 @@ const Login = () => {
                 </button>
               </div>
 
-              <button type="submit" disabled={loading} style={{
+              <button type="submit" disabled={loading || isLocked} style={{
                 width: "100%", padding: "0.85rem", borderRadius: 12, border: "none",
-                background: loading ? "#a5b4fc" : "linear-gradient(135deg,#4f46e5 0%,#3730a3 100%)",
-                color: "#fff", fontWeight: 700, fontSize: 15, cursor: loading ? "not-allowed" : "pointer",
+                background: loading || isLocked ? "#a5b4fc" : "linear-gradient(135deg,#4f46e5 0%,#3730a3 100%)",
+                color: "#fff", fontWeight: 700, fontSize: 15, cursor: loading || isLocked ? "not-allowed" : "pointer",
                 boxShadow: "0 4px 16px rgba(79,70,229,.4)", transition: "all .2s",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
               }}
-                onMouseEnter={(e) => { if (!loading) { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(79,70,229,.5)"; } }}
+                onMouseEnter={(e) => { if (!loading && !isLocked) { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(79,70,229,.5)"; } }}
                 onMouseLeave={(e) => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "0 4px 16px rgba(79,70,229,.4)"; }}
               >
                 {loading
                   ? <><span className="spinner-border spinner-border-sm" style={{ width: 18, height: 18 }}></span>Ingresando...</>
+                  : isLocked
+                    ? <><i className="bi bi-lock-fill" style={{ fontSize: 18 }}></i>Bloqueado {remainingTime}</>
                   : <><i className="bi bi-box-arrow-in-right" style={{ fontSize: 18 }}></i>Ingresar</>
                 }
               </button>
