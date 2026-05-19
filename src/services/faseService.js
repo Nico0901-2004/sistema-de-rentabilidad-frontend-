@@ -27,3 +27,7 @@ export const updateFase = async (id, data) => {
   }
 };
 
+export const desactivarFase = async (id) => {
+  const response = await api.put(`/fases/${id}/desactivar`);
+  return response.data;
+};

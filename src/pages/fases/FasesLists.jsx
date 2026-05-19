@@ -2,10 +2,12 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Layout from "../../components/layout/Layout";
 import DataTable from "../../components/ui/DataTable";
+import ConfirmModal from "../../components/ui/ConfirmModal";
 import { useAuth } from "../../context/AuthContext";
 import { getProyectoById } from "../../services/proyectoService";
-import { getFasesByProyecto } from "../../services/faseService";
+import { desactivarFase, getFasesByProyecto } from "../../services/faseService";
 import FasesForm from "./FasesForm";
+import { notifySuccess, notifyError } from "../../utils/notify";
 
 const normalizeFases = (data) =>
   (Array.isArray(data) ? data : []).map((fase) => ({
@@ -30,6 +32,7 @@ const FasesLists = ({ proyectoId: proyectoIdProp, embedded = false, onClose, onC
   const [editingId, setEditingId] = useState(null);
   const [search, setSearch] = useState("");
   const [orderBy, setOrderBy] = useState("fecha");
+  const [confirm, setConfirm] = useState(null);
 
   const fetchFases = useCallback(async () => {
     if (!proyectoId) {
@@ -149,6 +152,24 @@ const FasesLists = ({ proyectoId: proyectoIdProp, embedded = false, onClose, onC
   const handleEdit = (id) => {
     setEditingId(id);
     setShowForm(true);
+  };
+
+  const handleDelete = async () => {
+    if (!confirm) return;
+
+    try {
+      const res = await desactivarFase(confirm.id_fase);
+      if (res?.success) {
+        notifySuccess("Fase eliminada correctamente.");
+        setConfirm(null);
+        fetchFases();
+        onChanged?.();
+      } else {
+        notifyError(res?.message || "No se pudo eliminar la fase.");
+      }
+    } catch (err) {
+      notifyError(err.response?.data?.message || "No se pudo eliminar la fase.");
+    }
   };
 
   const columns = [
@@ -282,12 +303,23 @@ const FasesLists = ({ proyectoId: proyectoIdProp, embedded = false, onClose, onC
             <button className="btn btn-sm btn-success" title="Editar" onClick={() => handleEdit(fase.id_fase)}>
               <i className="bi bi-pencil-square"></i>
             </button>
-            <button className="btn btn-sm btn-danger" title="El backend aún no expone eliminación de fases" disabled>
+            <button className="btn btn-sm btn-danger" title="Eliminar" onClick={() => setConfirm(fase)}>
               <i className="bi bi-trash-fill"></i>
             </button>
           </div>
         ) : undefined}
       />
+
+      {confirm && (
+        <ConfirmModal
+          danger
+          title="Eliminar fase"
+          message={`¿Seguro que quieres eliminar la fase "${confirm.nombre}"?`}
+          confirmLabel={<><i className="bi bi-trash-fill me-2"></i>Eliminar</>}
+          onConfirm={handleDelete}
+          onCancel={() => setConfirm(null)}
+        />
+      )}
     </div>
   );
 
