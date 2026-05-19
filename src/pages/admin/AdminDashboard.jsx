@@ -5,6 +5,34 @@ import { useAuth } from "../../context/AuthContext";
 import { getEmpresas } from "../../services/empresaService";
 import { getUsuarios } from "../../services/usuarioService";
 
+const isActive = (item) => item?.is_active !== false && item?.activo !== false;
+const sameId = (a, b) => String(a) === String(b);
+const getEmpresaId = (empresa) => empresa?.id_empresa ?? empresa?.id;
+
+const normalizeEmpresa = (empresa) => ({
+  ...empresa,
+  id_empresa: getEmpresaId(empresa),
+  empresa_nombre: empresa?.empresa_nombre ?? empresa?.nombre ?? "",
+});
+
+const getUniqueEmpresas = (empresas = []) => {
+  const uniqueById = new Map();
+
+  empresas.map(normalizeEmpresa).forEach((empresa) => {
+    const id = getEmpresaId(empresa);
+    if (!id) return;
+
+    const current = uniqueById.get(String(id));
+    uniqueById.set(String(id), {
+      ...current,
+      ...empresa,
+      propietario_nombre: empresa.propietario_nombre || current?.propietario_nombre || "",
+    });
+  });
+
+  return Array.from(uniqueById.values());
+};
+
 const AdminDashboard = () => {
   const { user } = useAuth();
   const [empresas, setEmpresas] = useState([]);
@@ -20,7 +48,7 @@ const AdminDashboard = () => {
         getEmpresas(),
         getUsuarios().catch(() => ({ data: [] })),
       ]);
-      if (empRes?.success) setEmpresas(empRes.data);
+      if (empRes?.success) setEmpresas(getUniqueEmpresas(empRes.data || []).filter(isActive));
       setOwners(ownerRes?.data || []);
     } catch {/* silent */}
     finally { setLoading(false); }
@@ -28,15 +56,16 @@ const AdminDashboard = () => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const conOwner    = empresas.filter((e) => owners.some((o) => o.id_empresa === e.id_empresa));
-  const sinOwner    = empresas.filter((e) => !owners.some((o) => o.id_empresa === e.id_empresa));
-  const ownersActivos = owners.filter((o) => o.is_active);
+  const ownersActivos = owners.filter(isActive);
+  const ownerOf = (idEmpresa) => ownersActivos.find((o) => sameId(o.id_empresa, idEmpresa));
+  const conOwner = empresas.filter((e) => ownerOf(e.id_empresa));
+  const sinOwner = empresas.filter((e) => !ownerOf(e.id_empresa));
 
   const stats = [
     { label: "Empresas registradas",   value: loading ? "…" : empresas.length,      icon: "bi-building-fill",      color: "#4F46E5", bg: "rgba(79,70,229,.1)",  to: "/empresas" },
-    { label: "Propietarios activos",   value: loading ? "…" : ownersActivos.length,  icon: "bi-person-check-fill",  color: "#10B981", bg: "rgba(16,185,129,.1)", to: "/usuarios" },
+    { label: "Propietarios",           value: loading ? "…" : ownersActivos.length,  icon: "bi-person-check-fill",  color: "#10B981", bg: "rgba(16,185,129,.1)", to: "/usuarios" },
     { label: "Empresas con propietario", value: loading ? "…" : conOwner.length,     icon: "bi-link-45deg",         color: "#06B6D4", bg: "rgba(6,182,212,.1)",  to: "/empresas" },
-    { label: "Sin propietario",        value: loading ? "…" : sinOwner.length,       icon: "bi-exclamation-circle", color: "#F59E0B", bg: "rgba(245,158,11,.1)", to: "/empresas" },
+    { label: "Empresas sin propietarios", value: loading ? "…" : sinOwner.length,    icon: "bi-exclamation-circle", color: "#F59E0B", bg: "rgba(245,158,11,.1)", to: "/empresas" },
   ];
 
   return (
@@ -93,7 +122,7 @@ const AdminDashboard = () => {
                   </div>
                 ) : (
                   empresas.slice(0, 5).map((e) => {
-                    const owner = e.propietario_nombre;
+                    const owner = ownerOf(e.id_empresa)?.nombre;
                     return (
                       <div key={e.id_empresa}
                         className="d-flex align-items-center justify-content-between p-2 rounded-3 mb-1"
@@ -145,7 +174,7 @@ const AdminDashboard = () => {
                     <p>No hay propietarios registrados</p>
                   </div>
                 ) : (
-                  owners.slice(0, 5).map((o) => (
+                  ownersActivos.slice(0, 5).map((o) => (
                     <div key={o.id_usuario}
                       className="d-flex align-items-center justify-content-between p-2 rounded-3 mb-1"
                       style={{ background: "rgba(16,185,129,.03)", transition: "background .2s" }}
@@ -164,9 +193,6 @@ const AdminDashboard = () => {
                           <p className="text-muted mb-0" style={{ fontSize: 11 }}>{o.empresa_nombre || "Sin empresa"}</p>
                         </div>
                       </div>
-                      <span className={`badge badge-role ${o.is_active ? "badge-active" : "badge-inactive"}`} style={{ fontSize: 10 }}>
-                        {o.is_active ? "Activo" : "Inactivo"}
-                      </span>
                     </div>
                   ))
                 )}
@@ -175,26 +201,6 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Acciones rápidas */}
-        <div className="row g-3 mt-1">
-          {[
-            { href: "/empresas", icon: "bi-building-add", label: "Crear empresa", color: "#4F46E5", bg: "rgba(79,70,229,.08)" },
-            { href: "/usuarios", icon: "bi-person-plus-fill", label: "Nuevo propietario", color: "#10B981", bg: "rgba(16,185,129,.08)" },
-          ].map((a, i) => (
-            <div className="col-12 col-sm-6" key={i}>
-              <Link to={a.href}
-                className="card border-0 rounded-4 p-3 d-flex flex-row align-items-center gap-3 text-decoration-none card-3d"
-                style={{ boxShadow: "var(--shadow-sm)", background: a.bg, transition: "var(--transition)" }}>
-                <div className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
-                  style={{ width: 40, height: 40, background: a.bg }}>
-                  <i className={`bi ${a.icon}`} style={{ color: a.color, fontSize: 20 }}></i>
-                </div>
-                <span className="fw-semibold" style={{ color: a.color }}>{a.label}</span>
-                <i className="bi bi-arrow-right ms-auto" style={{ color: a.color, opacity: .6 }}></i>
-              </Link>
-            </div>
-          ))}
-        </div>
       </div>
     </Layout>
   );

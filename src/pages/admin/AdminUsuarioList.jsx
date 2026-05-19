@@ -6,6 +6,8 @@ import ConfirmModal from "../../components/ui/ConfirmModal";
 import { desactivarUsuario, getUsuarios } from "../../services/usuarioService";
 import { notifySuccess, notifyError } from "../../utils/notify";
 
+const isActive = (owner) => owner?.is_active !== false && owner?.activo !== false;
+
 const AdminUsuarioList = () => {
   const [owners, setOwners]           = useState([]);
   const [loading, setLoading]         = useState(true);
@@ -21,7 +23,7 @@ const AdminUsuarioList = () => {
       setLoading(true);
       setError("");
       const res = await getUsuarios();
-      if (res?.success) setOwners(res.data);
+      if (res?.success) setOwners((res.data || []).filter(isActive));
       else setError("No se pudo cargar la lista.");
     } catch {
       setError("Error al conectar con el servidor.");

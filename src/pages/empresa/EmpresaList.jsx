@@ -7,6 +7,8 @@ import { getPropietarios } from "../../services/usuarioService";
 const normalizeText = (value) => String(value || "").trim().toLowerCase();
 
 const getEmpresaId = (empresa) => empresa?.id_empresa ?? empresa?.id;
+const isActive = (item) => item?.is_active !== false && item?.activo !== false;
+const sameId = (a, b) => String(a) === String(b);
 
 const normalizeEmpresa = (empresa) => ({
   ...empresa,
@@ -55,9 +57,9 @@ const EmpresaList = () => {
 
       if (empRes?.success) {
         const empresasData = Array.isArray(empRes.data) ? empRes.data : [];
-        setEmpresas(getUniqueEmpresas(empresasData));
+        setEmpresas(getUniqueEmpresas(empresasData).filter(isActive));
       }
-      setOwners(ownerRes?.data || []);
+      setOwners((ownerRes?.data || []).filter(isActive));
     } catch {
       setError("Error al cargar empresas.");
     } finally {
@@ -69,7 +71,8 @@ const EmpresaList = () => {
     fetchData();
   }, [fetchData]);
 
-  const ownerOf = (id_empresa) => owners.find((o) => String(o.id_empresa) === String(id_empresa));
+  const ownerOf = (id_empresa) => owners.find((o) => sameId(o.id_empresa, id_empresa));
+  const getOwnerName = (empresa) => ownerOf(empresa.id_empresa)?.nombre || "";
 
   const searchTerm = normalizeText(search);
   const filtered = empresas.filter((e) => {
@@ -77,14 +80,13 @@ const EmpresaList = () => {
 
     return [
       e.empresa_nombre,
-      e.propietario_nombre,
+      getOwnerName(e),
       e.id_empresa,
     ].some((field) => normalizeText(field).includes(searchTerm));
   });
 
-  // ✅ stats correctos usando propietario_nombre
-  const empresasConOwner = empresas.filter((e) => e.propietario_nombre);
-  const empresasSinOwner = empresas.filter((e) => !e.propietario_nombre);
+  const empresasConOwner = empresas.filter((e) => ownerOf(e.id_empresa));
+  const empresasSinOwner = empresas.filter((e) => !ownerOf(e.id_empresa));
 
   return (
     <Layout>
@@ -197,8 +199,9 @@ const EmpresaList = () => {
         ) : filtered.length > 0 ? (
           <div className="row g-3 stagger">
             {filtered.map((empresa) => {
-              // si existe owner en el endpoint /usuarios/propietarios lo usamos para email/avatar
+              // Usamos la lista de propietarios activos para decidir si la empresa tiene propietario válido.
               const owner = ownerOf(empresa.id_empresa);
+              const ownerName = owner?.nombre || "";
 
               return (
                 <div className="col-12 col-md-6 col-lg-4" key={`empresa-${empresa.id_empresa}`}>
@@ -238,15 +241,15 @@ const EmpresaList = () => {
                       <div
                         className="rounded-3 p-3 mb-3"
                         style={{
-                          background: empresa.propietario_nombre
+                          background: ownerName
                             ? "rgba(16,185,129,.06)"
                             : "rgba(245,158,11,.06)",
                         }}
                       >
-                        {empresa.propietario_nombre ? (
+                        {ownerName ? (
                           <div className="d-flex align-items-center gap-2">
                             <div className="avatar" style={{ width: 30, height: 30, fontSize: 11 }}>
-                              {empresa.propietario_nombre
+                              {ownerName
                                 .split(" ")
                                 .map((n) => n[0])
                                 .slice(0, 2)
@@ -256,7 +259,7 @@ const EmpresaList = () => {
 
                             <div>
                               <p className="fw-semibold mb-0" style={{ fontSize: 13 }}>
-                                {empresa.propietario_nombre}
+                                {ownerName}
                               </p>
 
                               {/* Si existe el owner completo, mostramos email */}

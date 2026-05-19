@@ -11,7 +11,7 @@ export const getUsuarioById = async (id) => {
 };
 
 export const getPropietarios = async () => {
-  const response = await api.get("/usuarios/propietarios");
+  const response = await api.get("/usuarios");
   return response.data;
 };
 
