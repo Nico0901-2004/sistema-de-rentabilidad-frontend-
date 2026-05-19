@@ -4,6 +4,34 @@ import EmpresaForm from "./EmpresaForm";
 import { getEmpresas } from "../../services/empresaService";
 import { getPropietarios } from "../../services/usuarioService";
 
+const normalizeText = (value) => String(value || "").trim().toLowerCase();
+
+const getEmpresaId = (empresa) => empresa?.id_empresa ?? empresa?.id;
+
+const normalizeEmpresa = (empresa) => ({
+  ...empresa,
+  id_empresa: getEmpresaId(empresa),
+  empresa_nombre: empresa?.empresa_nombre ?? empresa?.nombre ?? "",
+});
+
+const getUniqueEmpresas = (empresas = []) => {
+  const uniqueById = new Map();
+
+  empresas.map(normalizeEmpresa).forEach((empresa) => {
+    const id = getEmpresaId(empresa);
+    if (!id) return;
+
+    const current = uniqueById.get(String(id));
+    uniqueById.set(String(id), {
+      ...current,
+      ...empresa,
+      propietario_nombre: empresa.propietario_nombre || current?.propietario_nombre || "",
+    });
+  });
+
+  return Array.from(uniqueById.values());
+};
+
 const EmpresaList = () => {
   const [empresas, setEmpresas] = useState([]);
   const [owners, setOwners] = useState([]);
@@ -25,7 +53,10 @@ const EmpresaList = () => {
         getPropietarios().catch(() => ({ data: [] })),
       ]);
 
-      if (empRes?.success) setEmpresas(empRes.data);
+      if (empRes?.success) {
+        const empresasData = Array.isArray(empRes.data) ? empRes.data : [];
+        setEmpresas(getUniqueEmpresas(empresasData));
+      }
       setOwners(ownerRes?.data || []);
     } catch {
       setError("Error al cargar empresas.");
@@ -40,10 +71,16 @@ const EmpresaList = () => {
 
   const ownerOf = (id_empresa) => owners.find((o) => String(o.id_empresa) === String(id_empresa));
 
-  // ✅ filtro usando empresa_nombre (que es lo que viene del backend)
-  const filtered = empresas.filter((e) =>
-    (e.empresa_nombre || "").toLowerCase().includes(search.toLowerCase())
-  );
+  const searchTerm = normalizeText(search);
+  const filtered = empresas.filter((e) => {
+    if (!searchTerm) return true;
+
+    return [
+      e.empresa_nombre,
+      e.propietario_nombre,
+      e.id_empresa,
+    ].some((field) => normalizeText(field).includes(searchTerm));
+  });
 
   // ✅ stats correctos usando propietario_nombre
   const empresasConOwner = empresas.filter((e) => e.propietario_nombre);
@@ -164,7 +201,7 @@ const EmpresaList = () => {
               const owner = ownerOf(empresa.id_empresa);
 
               return (
-                <div className="col-12 col-md-6 col-lg-4" key={empresa.id_empresa}>
+                <div className="col-12 col-md-6 col-lg-4" key={`empresa-${empresa.id_empresa}`}>
                   <div
                     className="card border-0 rounded-4 h-100 card-3d animate-fadeInUp overflow-hidden"
                     style={{ boxShadow: "var(--shadow-md)" }}
@@ -265,8 +302,17 @@ const EmpresaList = () => {
           <div className="card border-0 rounded-4" style={{ boxShadow: "var(--shadow-sm)" }}>
             <div className="empty-state">
               <i className="bi bi-building"></i>
-              <h6>No hay empresas</h6>
-              <p>Crea la primera empresa con el botón de arriba.</p>
+              {searchTerm ? (
+                <>
+                  <h6>No hay coincidencias</h6>
+                  <p>No se encontraron empresas para "{search.trim()}".</p>
+                </>
+              ) : (
+                <>
+                  <h6>No hay empresas</h6>
+                  <p>Crea la primera empresa con el botón de arriba.</p>
+                </>
+              )}
             </div>
           </div>
         )}
