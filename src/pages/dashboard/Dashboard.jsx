@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Layout from "../../components/layout/Layout";
 import { useAuth } from "../../context/AuthContext";
 import { getServicios } from "../../services/servicioService";
@@ -100,8 +100,10 @@ const ProyectoHorasCard = ({ proyecto }) => {
 
 /* ═══════════════════════════════════════════════ */
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const rol = user?.rol;
+  const propietarioSinEmpresa = rol === "propietario" && !user?.id_empresa;
 
   const [stats, setStats]               = useState({ servicios: 0, líderes: 0, empleados: 0, proyectos: 0 });
   const [proyectos, setProyectos]       = useState([]);
@@ -112,7 +114,7 @@ const Dashboard = () => {
 
   /* ── Propietario stats ─────────────────────── */
   useEffect(() => {
-    if (rol !== "propietario") return;
+    if (rol !== "propietario" || !user?.id_empresa) return;
     setLoadingStats(true);
     Promise.all([
       getServicios().catch(() => ({ data: [] })),
@@ -130,7 +132,7 @@ const Dashboard = () => {
       });
       setProyectos(pryList.filter((p) => p.is_active).slice(0, 6));
     }).finally(() => setLoadingStats(false));
-  }, [rol]);
+  }, [rol, user?.id_empresa]);
 
   /* ── Lider / Empleado stats ────────────────── */
   const [misProyectos, setMisProyectos] = useState([]);
@@ -147,6 +149,55 @@ const Dashboard = () => {
 
   /* ── OWNER ─────────────────────────────────── */
   if (rol === "propietario") {
+    if (propietarioSinEmpresa) {
+      return (
+        <Layout>
+          <div className="animate-fadeInUp">
+            <div className="page-header">
+              <h2 className="fw-bold mb-1">Cuenta sin empresa asignada</h2>
+              <p className="text-muted small mb-0">Tu cuenta está activa, pero todavía no tiene una empresa vinculada.</p>
+            </div>
+
+            <div className="card border-0 rounded-4 overflow-hidden" style={{ boxShadow: "var(--shadow-md)", maxWidth: 720 }}>
+              <div style={{ height: 4, background: "linear-gradient(90deg,#F59E0B,#06B6D4)" }}></div>
+              <div className="card-body p-4 p-md-5">
+                <div className="d-flex align-items-start gap-3">
+                  <div
+                    className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+                    style={{ width: 52, height: 52, background: "rgba(245,158,11,.12)" }}
+                  >
+                    <i className="bi bi-building-exclamation" style={{ color: "#D97706", fontSize: 24 }}></i>
+                  </div>
+                  <div>
+                    <h5 className="fw-bold mb-2">Acceso de empresa pendiente</h5>
+                    <p className="text-muted mb-4">
+                      Tu cuenta está activa, pero actualmente no tienes una empresa asignada.
+                      Contacta con el administrador para recuperar el acceso a las funciones de empresa.
+                    </p>
+                    <div className="d-flex flex-wrap gap-2">
+                      <Link to="/perfil" className="btn btn-primary px-4">
+                        <i className="bi bi-person-circle me-2"></i>Mi Perfil
+                      </Link>
+                      <button
+                        type="button"
+                        className="btn btn-outline-danger px-4"
+                        onClick={async () => {
+                          await logout();
+                          navigate("/login");
+                        }}
+                      >
+                        <i className="bi bi-box-arrow-right me-2"></i>Cerrar sesión
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Layout>
+      );
+    }
+
     return (
       <Layout>
         <div className="animate-fadeInUp">

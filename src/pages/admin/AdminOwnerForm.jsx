@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { getEmpresas } from "../../services/empresaService";
-import { createUser, getUsuarioById, updateUsuario } from "../../services/usuarioService";
+import { createUser, getUsuarioById, getUsuarios, updateUsuario } from "../../services/usuarioService";
 import { notifyError, notifySuccess } from "../../utils/notify";
 
 const EMPTY_FORM = {
@@ -18,6 +18,8 @@ const buildForm = (owner) => ({
 });
 
 const isBlank = (value) => value === undefined || value === null || String(value).trim() === "";
+const sameId = (a, b) => String(a) === String(b);
+const isActive = (item) => item?.is_active !== false && item?.activo !== false;
 
 const cleanPayload = (payload) =>
   Object.entries(payload).reduce((acc, [key, value]) => {
@@ -35,6 +37,7 @@ const AdminOwnerForm = ({ onSaved, onCancel, owner }) => {
   const isEdit = Boolean(owner);
   const [form, setForm] = useState(() => buildForm(owner));
   const [empresas, setEmpresas]       = useState([]);
+  const [owners, setOwners]           = useState([]);
   const [error, setError]             = useState("");
   const [success, setSuccess]         = useState(false);
   const [loading, setLoading]         = useState(false);
@@ -43,8 +46,14 @@ const AdminOwnerForm = ({ onSaved, onCancel, owner }) => {
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
-    getEmpresas()
-      .then((res) => { if (res?.success) setEmpresas(res.data); })
+    Promise.all([
+      getEmpresas(),
+      getUsuarios().catch(() => ({ data: [] })),
+    ])
+      .then(([empRes, ownerRes]) => {
+        if (empRes?.success) setEmpresas(empRes.data || []);
+        setOwners((ownerRes?.data || []).filter(isActive));
+      })
       .catch(() => {});
   }, []);
 
@@ -85,6 +94,19 @@ const AdminOwnerForm = ({ onSaved, onCancel, owner }) => {
 
   const handleChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
 
+  const empresasDisponibles = useMemo(() => {
+    const currentOwnerId = owner?.id_usuario;
+
+    return empresas.filter((empresa) => {
+      const ownerFromEmpresa = empresa.propietario_id || empresa.id_propietario;
+      const ownerFromUsuarios = owners.find((o) => sameId(o.id_empresa, empresa.id_empresa))?.id_usuario;
+      const assignedOwnerId = ownerFromEmpresa || ownerFromUsuarios;
+
+      if (!assignedOwnerId) return true;
+      return isEdit && currentOwnerId && sameId(assignedOwnerId, currentOwnerId);
+    });
+  }, [empresas, isEdit, owner?.id_usuario, owners]);
+
   const validate = () => {
     const nombre = form.nombre.trim();
     const email = form.email.trim();
@@ -95,7 +117,10 @@ const AdminOwnerForm = ({ onSaved, onCancel, owner }) => {
     if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/.test(nombre)) return "El nombre solo debe contener letras y espacios.";
     if (!email) return "El email es obligatorio.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Email inválido.";
-    if (!isEdit && !form.id_empresa) return "Selecciona una empresa.";
+    if (!form.id_empresa) return "Selecciona una empresa.";
+    if (!empresasDisponibles.some((empresa) => sameId(empresa.id_empresa, form.id_empresa))) {
+      return "Selecciona una empresa sin propietario.";
+    }
     if ((!isEdit || password) && !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,100}$/.test(password)) {
       return "La contraseña debe tener 8 caracteres, mayúscula, minúscula, número y carácter especial.";
     }
@@ -110,7 +135,7 @@ const AdminOwnerForm = ({ onSaved, onCancel, owner }) => {
     };
 
     if (form.password) payload.password = form.password;
-    if (!isEdit) payload.id_empresa = Number(form.id_empresa);
+    payload.id_empresa = Number(form.id_empresa);
 
     return cleanPayload(payload);
   };
@@ -201,9 +226,9 @@ const AdminOwnerForm = ({ onSaved, onCancel, owner }) => {
             <div className="col-12 col-sm-6">
               <label className="form-label fw-semibold small">Empresa</label>
               <select name="id_empresa" value={form.id_empresa} onChange={handleChange}
-                className="form-select" required={!isEdit} disabled={isEdit || loadingDetalle}>
+                className="form-select" required disabled={loadingDetalle}>
                 <option value="">Selecciona una empresa</option>
-                {empresas.map((e) => (
+                {empresasDisponibles.map((e) => (
                   <option key={e.id_empresa} value={e.id_empresa}>{e.empresa_nombre}</option>
                 ))}
               </select>

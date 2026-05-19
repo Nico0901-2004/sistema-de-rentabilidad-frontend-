@@ -1,14 +1,22 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Layout from "../../components/layout/Layout";
 import EmpresaForm from "./EmpresaForm";
+import ConfirmModal from "../../components/ui/ConfirmModal";
 import { getEmpresas } from "../../services/empresaService";
-import { getPropietarios } from "../../services/usuarioService";
+import { getPropietarios, revocarEmpresaPropietario } from "../../services/usuarioService";
+import { notifyError, notifySuccess } from "../../utils/notify";
 
 const normalizeText = (value) => String(value || "").trim().toLowerCase();
 
 const getEmpresaId = (empresa) => empresa?.id_empresa ?? empresa?.id;
 const isActive = (item) => item?.is_active !== false && item?.activo !== false;
 const sameId = (a, b) => String(a) === String(b);
+
+const getApiMessage = (err, fallback) => {
+  const data = err?.response?.data;
+  if (typeof data === "string") return data;
+  return data?.message || data?.errors?.[0]?.msg || err?.message || fallback;
+};
 
 const normalizeEmpresa = (empresa) => ({
   ...empresa,
@@ -43,6 +51,8 @@ const EmpresaList = () => {
   const [showModal, setShowModal] = useState(false);
   const [empresaId, setEmpresaId] = useState(null);
   const [editingOwner, setEditingOwner] = useState(null);
+  const [revokeTarget, setRevokeTarget] = useState(null);
+  const [revoking, setRevoking] = useState(false);
 
   const [search, setSearch] = useState("");
 
@@ -66,6 +76,27 @@ const EmpresaList = () => {
       setLoading(false);
     }
   }, []);
+
+  const handleRevokeOwner = async () => {
+    if (!revokeTarget?.owner?.id_usuario) return;
+
+    try {
+      setRevoking(true);
+      const response = await revocarEmpresaPropietario(revokeTarget.owner.id_usuario);
+
+      if (response?.success) {
+        notifySuccess("Propietario revocado correctamente.");
+        setRevokeTarget(null);
+        await fetchData();
+      } else {
+        notifyError(response?.message || "No se pudo revocar el propietario.");
+      }
+    } catch (err) {
+      notifyError(getApiMessage(err, "No se pudo revocar el propietario."));
+    } finally {
+      setRevoking(false);
+    }
+  };
 
   useEffect(() => {
     fetchData();
@@ -294,6 +325,14 @@ const EmpresaList = () => {
                         >
                           <i className="bi bi-pencil-square me-1"></i>Editar
                         </button>
+                        {owner && (
+                          <button
+                            className="btn btn-sm btn-warning flex-fill fw-semibold"
+                            onClick={() => setRevokeTarget({ empresa, owner })}
+                          >
+                            <i className="bi bi-person-dash-fill me-1"></i>Revocar propietario
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -331,6 +370,18 @@ const EmpresaList = () => {
         empresaId={empresaId}
         owner={editingOwner}
       />
+
+      {revokeTarget && (
+        <ConfirmModal
+          danger
+          title="Revocar propietario"
+          message={`¿Seguro que quieres revocar a "${revokeTarget.owner.nombre}" como propietario de "${revokeTarget.empresa.empresa_nombre}"?`}
+          confirmLabel={<><i className="bi bi-person-dash-fill me-2"></i>Revocar</>}
+          loading={revoking}
+          onConfirm={handleRevokeOwner}
+          onCancel={() => !revoking && setRevokeTarget(null)}
+        />
+      )}
     </Layout>
   );
 };
