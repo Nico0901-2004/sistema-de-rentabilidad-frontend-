@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { createHora, updateHora, getMisHoras } from "../../services/horasService";
-import { getProyectosDisponibles } from "../../services/proyectoService";
-import { getFasesByProyecto } from "../../services/faseService"; // Asegúrate de que exista en tu faseService o cámbialo por el nombre correcto
+import { getMisProyectos } from "../../services/proyectoService"; // CORRECCIÓN CRÍTICA: Usamos getMisProyectos con accesos de empleado
+import { getFasesByProyecto } from "../../services/faseService"; 
 import { notifySuccess } from "../../utils/notify";
 
 const today = () => {
@@ -31,9 +31,9 @@ const HorasForm = ({ idRegistroEdicion, proyectoPreseleccionado, fasesPreselecci
   const isProjectLocked = Boolean(proyectoInicialId);
   const isEdicion = Boolean(idRegistroEdicion);
 
-  // 1. Cargar proyectos disponibles al montar el componente
+  // 1. Cargar proyectos asignados al empleado al montar el componente
   useEffect(() => {
-    getProyectosDisponibles()
+    getMisProyectos() // CORRECCIÓN: Invocación autorizada para el rol empleado
       .then((res) => {
         const rawData = res?.success ? res.data : res;
         const data = Array.isArray(rawData) ? rawData : [];
@@ -49,6 +49,7 @@ const HorasForm = ({ idRegistroEdicion, proyectoPreseleccionado, fasesPreselecci
       })
       .catch(() => {
         if (proyectoInicial) setProyectos([proyectoInicial]);
+        else setError("No se pudieron cargar tus proyectos asignados.");
       });
   }, [proyectoInicial, proyectoInicialId]);
 
@@ -58,7 +59,7 @@ const HorasForm = ({ idRegistroEdicion, proyectoPreseleccionado, fasesPreselecci
       setLoading(true);
       getMisHoras()
         .then((res) => {
-          const registros = Array.isArray(res) ? res : res?.data || [];
+          const registros = res?.success ? res.data : (Array.isArray(res) ? res : []);
           // Buscamos el registro específico que queremos editar
           const registroAEditar = registros.find(
             (r) => (r.id_registro || r.id) === idRegistroEdicion
@@ -76,7 +77,7 @@ const HorasForm = ({ idRegistroEdicion, proyectoPreseleccionado, fasesPreselecci
             setError("No se encontraron los datos del registro a editar.");
           }
         })
-        .catch((err) => setError("Error al precargar los datos de edición."))
+        .catch(() => setError("Error al precargar los datos de edición."))
         .finally(() => setLoading(false));
     }
   }, [idRegistroEdicion, isEdicion]);
@@ -84,10 +85,8 @@ const HorasForm = ({ idRegistroEdicion, proyectoPreseleccionado, fasesPreselecci
   // 3. HU 32: Cargar fases automáticamente cada vez que cambie o se seleccione un proyecto
   useEffect(() => {
     if (form.id_proyecto) {
-      // Consumimos el endpoint de fases del proyecto seleccionado
       getFasesByProyecto(form.id_proyecto)
         .then((res) => {
-          // Adaptar según la estructura que devuelva tu endpoint de fases (usualmente res.data o res)
           const rawData = res?.success ? res.data : res;
           setFases(Array.isArray(rawData) ? rawData : []);
         })
@@ -121,7 +120,6 @@ const HorasForm = ({ idRegistroEdicion, proyectoPreseleccionado, fasesPreselecci
 
     setLoading(true);
     try {
-      // Datos estructurados tal como los espera el backend en horas.repository.js (create y update)
       const dataPayload = {
         id_proyecto: Number(form.id_proyecto),
         id_fase: Number(form.id_fase),
@@ -132,10 +130,8 @@ const HorasForm = ({ idRegistroEdicion, proyectoPreseleccionado, fasesPreselecci
 
       let response;
       if (isEdicion) {
-        // HU 33: Consumir endpoint de edición pasándole la ID
         response = await updateHora(idRegistroEdicion, dataPayload);
       } else {
-        // HU 32: Consumir endpoint de creación
         response = await createHora(dataPayload);
       }
 
@@ -154,7 +150,7 @@ const HorasForm = ({ idRegistroEdicion, proyectoPreseleccionado, fasesPreselecci
 
   return (
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && !forceRequired && onCancel()}>
-      <div className="modal-card p-4 animate-scaleIn">
+      <div className="modal-card p-4 animate-scaleIn" style={{ zIndex: 1100 }}>
         <div className="d-flex justify-content-between align-items-center mb-4">
           <div>
             <h5 className="fw-bold mb-0">{isEdicion ? "Editar Horas" : "Registrar Horas"}</h5>
@@ -194,12 +190,12 @@ const HorasForm = ({ idRegistroEdicion, proyectoPreseleccionado, fasesPreselecci
             >
               <option value="">— Selecciona un proyecto —</option>
               {proyectos.map((p) => (
-                <option key={p.id_proyecto} value={p.id_proyecto}>{p.nombre}</option>
+                <option key={p.id_proyecto} value={p.id_proyecto}>{p.nombre || p.proyecto_nombre}</option>
               ))}
             </select>
           </div>
 
-          {/* Campo: Fase (Requerido por HU 32 y Backend) */}
+          {/* Campo: Fase */}
           <div className="mb-3">
             <label className="form-label fw-semibold small">Fase del Proyecto *</label>
             <select
@@ -233,7 +229,7 @@ const HorasForm = ({ idRegistroEdicion, proyectoPreseleccionado, fasesPreselecci
               className="form-control"
               required
               max={today()}
-              disabled
+              disabled={isEdicion} // CORRECCIÓN: Sólo deshabilitado en edición para proteger los rangos diarios del backend
             />
           </div>
 
