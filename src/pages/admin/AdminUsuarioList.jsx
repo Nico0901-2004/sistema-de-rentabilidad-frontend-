@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import Layout from "../../components/layout/Layout";
 import AdminOwnerForm from "./AdminOwnerForm";
 import DataTable from "../../components/ui/DataTable";
-import { getUsuarios, updateUsuario } from "../../services/usuarioService";
+import ConfirmModal from "../../components/ui/ConfirmModal";
+import { desactivarUsuario, getUsuarios } from "../../services/usuarioService";
 import { notifySuccess, notifyError } from "../../utils/notify";
 
 const AdminUsuarioList = () => {
@@ -12,10 +13,13 @@ const AdminUsuarioList = () => {
   const [showForm, setShowForm]       = useState(false);
   const [editingOwner, setEditingOwner] = useState(null);
   const [search, setSearch]           = useState("");
+  const [confirm, setConfirm]         = useState(null);
+  const [deleting, setDeleting]       = useState(false);
 
   const fetchOwners = useCallback(async () => {
     try {
       setLoading(true);
+      setError("");
       const res = await getUsuarios();
       if (res?.success) setOwners(res.data);
       else setError("No se pudo cargar la lista.");
@@ -39,16 +43,19 @@ const AdminUsuarioList = () => {
     setShowForm(true);
   };
 
-  // 🔁 AHORA ESTE MÉTODO REEMPLAZA AL DELETE (DESACTIVA)
-  const handleDelete = async (owner) => {
-    if (!window.confirm(`¿Eliminar al propietario "${owner.nombre}"?`)) return;
+  const handleDelete = async () => {
+    if (!confirm) return;
 
     try {
-      await updateUsuario(owner.id_usuario, { is_active: false });
+      setDeleting(true);
+      await desactivarUsuario(confirm.id_usuario);
+      setOwners((prev) => prev.filter((owner) => owner.id_usuario !== confirm.id_usuario));
       notifySuccess("Propietario eliminado correctamente");
-      fetchOwners();
     } catch (err) {
       notifyError(err.response?.data?.message || "Error al eliminar el propietario.");
+    } finally {
+      setDeleting(false);
+      setConfirm(null);
     }
   };
 
@@ -143,6 +150,15 @@ const AdminUsuarioList = () => {
           ))}
         </div>
 
+        {showForm && (
+          <AdminOwnerForm
+            key={editingOwner?.id_usuario || "new-owner"}
+            owner={editingOwner}
+            onSaved={handleSaved}
+            onCancel={() => { setShowForm(false); setEditingOwner(null); }}
+          />
+        )}
+
         <DataTable
           columns={columns}
           data={filtered}
@@ -158,7 +174,7 @@ const AdminUsuarioList = () => {
               <button className="btn btn-sm btn-success" title="Editar propietario" onClick={() => handleEdit(o)}>
                 <i className="bi bi-pencil-square"></i>
               </button>
-              <button className="btn btn-sm btn-danger" title="Eliminar propietario" onClick={() => handleDelete(o)}>
+              <button className="btn btn-sm btn-danger" title="Eliminar propietario" onClick={() => setConfirm(o)}>
                 <i className="bi bi-trash-fill"></i>
               </button>
             </div>
@@ -166,11 +182,15 @@ const AdminUsuarioList = () => {
         />
       </div>
 
-      {showForm && (
-        <AdminOwnerForm
-          owner={editingOwner}
-          onSaved={handleSaved}
-          onCancel={() => { setShowForm(false); setEditingOwner(null); }}
+      {confirm && (
+        <ConfirmModal
+          danger
+          title="Eliminar propietario"
+          message={`¿Seguro que quieres eliminar al propietario "${confirm.nombre}"?`}
+          confirmLabel={<><i className="bi bi-trash-fill me-2"></i>Eliminar</>}
+          loading={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => !deleting && setConfirm(null)}
         />
       )}
     </Layout>

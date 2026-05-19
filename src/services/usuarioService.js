@@ -6,15 +6,8 @@ export const getUsuarios = async () => {
 };
 
 export const getUsuarioById = async (id) => {
-  const response = await getUsuarios();
-  const usuarios = response?.data || [];
-  const usuario = usuarios.find((item) => Number(item.id_usuario) === Number(id));
-
-  if (!usuario) {
-    throw new Error("Usuario no encontrado");
-  }
-
-  return { success: true, data: usuario };
+  const response = await api.get(`/usuarios/${id}`);
+  return response.data;
 };
 
 export const getPropietarios = async () => {
@@ -29,6 +22,11 @@ export const createUser = async (data) => {
 
 export const updateUsuario = async (id, data) => {
   const response = await api.put(`/usuarios/${id}`, data);
+  return response.data;
+};
+
+export const desactivarUsuario = async (id) => {
+  const response = await api.put(`/usuarios/${id}/desactivar`);
   return response.data;
 };
 
