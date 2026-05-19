@@ -25,7 +25,14 @@ const ProyectoForm = ({ proyectoId, onSaved, onCancel }) => {
   useEffect(() => {
     Promise.all([getServicios(), getUsuarios()])
       .then(([sRes, uRes]) => {
-        if (sRes?.success) setServicios(sRes.data.filter((s) => s.is_active));
+        // CORRECCIÓN: Quitamos el filtro .filter(s => s.is_active) porque el backend no envía esa propiedad 
+        // pero ya filtra de forma nativa en SQL únicamente los servicios activos.
+        if (sRes?.success && Array.isArray(sRes.data)) {
+          setServicios(sRes.data);
+        } else if (Array.isArray(sRes)) {
+          setServicios(sRes);
+        }
+
         if (uRes?.success || Array.isArray(uRes?.data)) {
           const users = uRes.data || [];
           setLideres(users.filter((u) => u.rol === "lider"));
