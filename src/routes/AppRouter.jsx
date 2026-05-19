@@ -60,16 +60,6 @@ const RequireRole = ({ roles, children }) => {
   return children;
 };
 
-const RequireEmpresa = ({ children }) => {
-  const { user, authLoading } = useAuth();
-  if (authLoading) return null;
-  if (!user) return <Navigate to="/login" replace />;
-  if (user.rol === "propietario" && !user.id_empresa) {
-    return <Navigate to="/dashboard" replace />;
-  }
-  return children;
-};
-
 /* ── Router ────────────────────────────────────────── */
 export default function AppRouter() {
   const { user, authLoading } = useAuth();
@@ -104,16 +94,16 @@ export default function AppRouter() {
         <RequireAuth><RequireRole roles={["propietario"]}><Dashboard /></RequireRole></RequireAuth>
       } />
       <Route path="/empresa-config" element={
-        <RequireAuth><RequireRole roles={["propietario"]}><RequireEmpresa><EmpresaConfig /></RequireEmpresa></RequireRole></RequireAuth>
+        <RequireAuth><RequireRole roles={["propietario"]}><EmpresaConfig /></RequireRole></RequireAuth>
       } />
       <Route path="/usuarios" element={
-        <RequireAuth><RequireRole roles={["admin", "propietario", "lider"]}><RequireEmpresa><UsuarioListRoute /></RequireEmpresa></RequireRole></RequireAuth>
+        <RequireAuth><RequireRole roles={["admin", "propietario", "lider"]}><UsuarioListRoute /></RequireRole></RequireAuth>
       } />
       <Route path="/servicios" element={
-        <RequireAuth><RequireRole roles={["propietario"]}><RequireEmpresa><ServicioList /></RequireEmpresa></RequireRole></RequireAuth>
+        <RequireAuth><RequireRole roles={["propietario"]}><ServicioList /></RequireRole></RequireAuth>
       } />
       <Route path="/rentabilidad" element={
-        <RequireAuth><RequireRole roles={["propietario"]}><RequireEmpresa><Rentabilidad /></RequireEmpresa></RequireRole></RequireAuth>
+        <RequireAuth><RequireRole roles={["propietario"]}><Rentabilidad /></RequireRole></RequireAuth>
       } />
 
       {/* ══════════ LIDER ══════════ */}
@@ -140,17 +130,17 @@ export default function AppRouter() {
       {/* ══════════ COMPARTIDAS ══════════ */}
       <Route path="/proyectos" element={
         <RequireAuth>
-          <RequireRole roles={["propietario", "lider", "empleado"]}><RequireEmpresa><ProyectoList /></RequireEmpresa></RequireRole>
+          <RequireRole roles={["propietario", "lider", "empleado"]}><ProyectoList /></RequireRole>
         </RequireAuth>
       } />
       <Route path="/proyectos/:proyectoId/fases" element={
         <RequireAuth>
-          <RequireRole roles={["propietario", "lider"]}><RequireEmpresa><FasesLists /></RequireEmpresa></RequireRole>
+          <RequireRole roles={["propietario", "lider"]}><FasesLists /></RequireRole>
         </RequireAuth>
       } />
       <Route path="/proyectos/:proyectoId/notas" element={
         <RequireAuth>
-          <RequireRole roles={["propietario", "lider"]}><RequireEmpresa><NotasLists /></RequireEmpresa></RequireRole>
+          <RequireRole roles={["propietario", "lider"]}><NotasLists /></RequireRole>
         </RequireAuth>
       } />
       <Route path="/perfil" element={

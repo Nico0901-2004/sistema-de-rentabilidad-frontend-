@@ -5,7 +5,7 @@ import { getEmpresaById } from "../../services/empresaService";
 import ButtonMarcaje from "../ui/ButtonMarcaje";
 
 /* Nav items por rol — solo se muestran los que el usuario puede usar */
-const getNavItems = (rol, hasEmpresa = true) => {
+const getNavItems = (rol) => {
   switch (rol) {
     case "admin":
       return [
@@ -15,13 +15,6 @@ const getNavItems = (rol, hasEmpresa = true) => {
         { to: "/perfil", icon: "bi-person-circle", label: "Mi Perfil" },
       ];
     case "propietario":
-      if (!hasEmpresa) {
-        return [
-          { to: "/dashboard", icon: "bi-grid-fill", label: "Dashboard" },
-          { to: "/perfil", icon: "bi-person-circle", label: "Mi Perfil" },
-        ];
-      }
-
       return [
         { to: "/dashboard", icon: "bi-grid-fill", label: "Dashboard" },
         { to: "/empresa-config", icon: "bi-building", label: "Mi Empresa" },
@@ -69,8 +62,7 @@ const Sidebar = () => {
       .catch(() => {});
   }, [user?.id_empresa]);
 
-  const hasEmpresa = Boolean(user?.id_empresa);
-  const navItems = getNavItems(rol, hasEmpresa);
+  const navItems = getNavItems(rol);
   const active = (path) => location.pathname === path;
 
   const rolConfig = {
@@ -107,7 +99,7 @@ const Sidebar = () => {
           </div>
           <div className="overflow-hidden">
             <p className="fw-bold text-white mb-0 text-truncate" style={{ fontSize: 13, maxWidth: 155 }}>
-              {empresaNombre || (rol === "admin" ? "Panel Admin" : hasEmpresa ? "Mi Empresa" : "Sin empresa")}
+              {empresaNombre || (rol === "admin" ? "Panel Admin" : "Mi Empresa")}
             </p>
             <span
               className="rounded-pill px-2 py-0"

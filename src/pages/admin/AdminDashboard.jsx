@@ -58,8 +58,9 @@ const AdminDashboard = () => {
 
   const ownersActivos = owners.filter(isActive);
   const ownerOf = (idEmpresa) => ownersActivos.find((o) => sameId(o.id_empresa, idEmpresa));
-  const conOwner = empresas.filter((e) => ownerOf(e.id_empresa));
-  const sinOwner = empresas.filter((e) => !ownerOf(e.id_empresa));
+  const getOwnerName = (empresa) => ownerOf(empresa.id_empresa)?.nombre || empresa.propietario_nombre || "";
+  const conOwner = empresas.filter(getOwnerName);
+  const sinOwner = empresas.filter((e) => !getOwnerName(e));
 
   const stats = [
     { label: "Empresas registradas",   value: loading ? "…" : empresas.length,      icon: "bi-building-fill",      color: "#4F46E5", bg: "rgba(79,70,229,.1)",  to: "/empresas" },
@@ -122,7 +123,7 @@ const AdminDashboard = () => {
                   </div>
                 ) : (
                   empresas.slice(0, 5).map((e) => {
-                    const owner = ownerOf(e.id_empresa)?.nombre;
+                    const owner = getOwnerName(e);
                     return (
                       <div key={e.id_empresa}
                         className="d-flex align-items-center justify-content-between p-2 rounded-3 mb-1"

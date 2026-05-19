@@ -1,22 +1,14 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Layout from "../../components/layout/Layout";
 import EmpresaForm from "./EmpresaForm";
-import ConfirmModal from "../../components/ui/ConfirmModal";
 import { getEmpresas } from "../../services/empresaService";
-import { getPropietarios, revocarEmpresaPropietario } from "../../services/usuarioService";
-import { notifyError, notifySuccess } from "../../utils/notify";
+import { getPropietarios } from "../../services/usuarioService";
 
 const normalizeText = (value) => String(value || "").trim().toLowerCase();
 
 const getEmpresaId = (empresa) => empresa?.id_empresa ?? empresa?.id;
 const isActive = (item) => item?.is_active !== false && item?.activo !== false;
 const sameId = (a, b) => String(a) === String(b);
-
-const getApiMessage = (err, fallback) => {
-  const data = err?.response?.data;
-  if (typeof data === "string") return data;
-  return data?.message || data?.errors?.[0]?.msg || err?.message || fallback;
-};
 
 const normalizeEmpresa = (empresa) => ({
   ...empresa,
@@ -51,8 +43,6 @@ const EmpresaList = () => {
   const [showModal, setShowModal] = useState(false);
   const [empresaId, setEmpresaId] = useState(null);
   const [editingOwner, setEditingOwner] = useState(null);
-  const [revokeTarget, setRevokeTarget] = useState(null);
-  const [revoking, setRevoking] = useState(false);
 
   const [search, setSearch] = useState("");
 
@@ -77,33 +67,12 @@ const EmpresaList = () => {
     }
   }, []);
 
-  const handleRevokeOwner = async () => {
-    if (!revokeTarget?.owner?.id_usuario) return;
-
-    try {
-      setRevoking(true);
-      const response = await revocarEmpresaPropietario(revokeTarget.owner.id_usuario);
-
-      if (response?.success) {
-        notifySuccess("Propietario revocado correctamente.");
-        setRevokeTarget(null);
-        await fetchData();
-      } else {
-        notifyError(response?.message || "No se pudo revocar el propietario.");
-      }
-    } catch (err) {
-      notifyError(getApiMessage(err, "No se pudo revocar el propietario."));
-    } finally {
-      setRevoking(false);
-    }
-  };
-
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
   const ownerOf = (id_empresa) => owners.find((o) => sameId(o.id_empresa, id_empresa));
-  const getOwnerName = (empresa) => ownerOf(empresa.id_empresa)?.nombre || "";
+  const getOwnerName = (empresa) => ownerOf(empresa.id_empresa)?.nombre || empresa.propietario_nombre || "";
 
   const searchTerm = normalizeText(search);
   const filtered = empresas.filter((e) => {
@@ -116,8 +85,8 @@ const EmpresaList = () => {
     ].some((field) => normalizeText(field).includes(searchTerm));
   });
 
-  const empresasConOwner = empresas.filter((e) => ownerOf(e.id_empresa));
-  const empresasSinOwner = empresas.filter((e) => !ownerOf(e.id_empresa));
+  const empresasConOwner = empresas.filter((e) => getOwnerName(e));
+  const empresasSinOwner = empresas.filter((e) => !getOwnerName(e));
 
   return (
     <Layout>
@@ -230,9 +199,9 @@ const EmpresaList = () => {
         ) : filtered.length > 0 ? (
           <div className="row g-3 stagger">
             {filtered.map((empresa) => {
-              // Usamos la lista de propietarios activos para decidir si la empresa tiene propietario válido.
+              // La relacion empresa-propietario se mantiene aunque el usuario sea desactivado.
               const owner = ownerOf(empresa.id_empresa);
-              const ownerName = owner?.nombre || "";
+              const displayedOwnerName = getOwnerName(empresa);
 
               return (
                 <div className="col-12 col-md-6 col-lg-4" key={`empresa-${empresa.id_empresa}`}>
@@ -272,15 +241,15 @@ const EmpresaList = () => {
                       <div
                         className="rounded-3 p-3 mb-3"
                         style={{
-                          background: ownerName
+                          background: displayedOwnerName
                             ? "rgba(16,185,129,.06)"
                             : "rgba(245,158,11,.06)",
                         }}
                       >
-                        {ownerName ? (
+                        {displayedOwnerName ? (
                           <div className="d-flex align-items-center gap-2">
                             <div className="avatar" style={{ width: 30, height: 30, fontSize: 11 }}>
-                              {ownerName
+                              {displayedOwnerName
                                 .split(" ")
                                 .map((n) => n[0])
                                 .slice(0, 2)
@@ -290,7 +259,7 @@ const EmpresaList = () => {
 
                             <div>
                               <p className="fw-semibold mb-0" style={{ fontSize: 13 }}>
-                                {ownerName}
+                                {displayedOwnerName}
                               </p>
 
                               {/* Si existe el owner completo, mostramos email */}
@@ -325,14 +294,6 @@ const EmpresaList = () => {
                         >
                           <i className="bi bi-pencil-square me-1"></i>Editar
                         </button>
-                        {owner && (
-                          <button
-                            className="btn btn-sm btn-warning flex-fill fw-semibold"
-                            onClick={() => setRevokeTarget({ empresa, owner })}
-                          >
-                            <i className="bi bi-person-dash-fill me-1"></i>Revocar propietario
-                          </button>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -371,17 +332,6 @@ const EmpresaList = () => {
         owner={editingOwner}
       />
 
-      {revokeTarget && (
-        <ConfirmModal
-          danger
-          title="Revocar propietario"
-          message={`¿Seguro que quieres revocar a "${revokeTarget.owner.nombre}" como propietario de "${revokeTarget.empresa.empresa_nombre}"?`}
-          confirmLabel={<><i className="bi bi-person-dash-fill me-2"></i>Revocar</>}
-          loading={revoking}
-          onConfirm={handleRevokeOwner}
-          onCancel={() => !revoking && setRevokeTarget(null)}
-        />
-      )}
     </Layout>
   );
 };

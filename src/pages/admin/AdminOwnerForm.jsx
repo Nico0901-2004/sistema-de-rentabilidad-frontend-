@@ -95,17 +95,13 @@ const AdminOwnerForm = ({ onSaved, onCancel, owner }) => {
   const handleChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
 
   const empresasDisponibles = useMemo(() => {
-    const currentOwnerId = owner?.id_usuario;
+    if (isEdit) return empresas;
 
     return empresas.filter((empresa) => {
-      const ownerFromEmpresa = empresa.propietario_id || empresa.id_propietario;
       const ownerFromUsuarios = owners.find((o) => sameId(o.id_empresa, empresa.id_empresa))?.id_usuario;
-      const assignedOwnerId = ownerFromEmpresa || ownerFromUsuarios;
-
-      if (!assignedOwnerId) return true;
-      return isEdit && currentOwnerId && sameId(assignedOwnerId, currentOwnerId);
+      return !ownerFromUsuarios && !empresa.propietario_nombre;
     });
-  }, [empresas, isEdit, owner?.id_usuario, owners]);
+  }, [empresas, isEdit, owners]);
 
   const validate = () => {
     const nombre = form.nombre.trim();
@@ -117,8 +113,8 @@ const AdminOwnerForm = ({ onSaved, onCancel, owner }) => {
     if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/.test(nombre)) return "El nombre solo debe contener letras y espacios.";
     if (!email) return "El email es obligatorio.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Email inválido.";
-    if (!form.id_empresa) return "Selecciona una empresa.";
-    if (!empresasDisponibles.some((empresa) => sameId(empresa.id_empresa, form.id_empresa))) {
+    if (!isEdit && !form.id_empresa) return "Selecciona una empresa.";
+    if (!isEdit && !empresasDisponibles.some((empresa) => sameId(empresa.id_empresa, form.id_empresa))) {
       return "Selecciona una empresa sin propietario.";
     }
     if ((!isEdit || password) && !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,100}$/.test(password)) {
@@ -135,7 +131,7 @@ const AdminOwnerForm = ({ onSaved, onCancel, owner }) => {
     };
 
     if (form.password) payload.password = form.password;
-    payload.id_empresa = Number(form.id_empresa);
+    if (!isEdit) payload.id_empresa = Number(form.id_empresa);
 
     return cleanPayload(payload);
   };
@@ -226,7 +222,7 @@ const AdminOwnerForm = ({ onSaved, onCancel, owner }) => {
             <div className="col-12 col-sm-6">
               <label className="form-label fw-semibold small">Empresa</label>
               <select name="id_empresa" value={form.id_empresa} onChange={handleChange}
-                className="form-select" required disabled={loadingDetalle}>
+                className="form-select" required={!isEdit} disabled={isEdit || loadingDetalle}>
                 <option value="">Selecciona una empresa</option>
                 {empresasDisponibles.map((e) => (
                   <option key={e.id_empresa} value={e.id_empresa}>{e.empresa_nombre}</option>

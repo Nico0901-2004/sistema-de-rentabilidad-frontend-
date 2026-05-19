@@ -30,11 +30,6 @@ export const desactivarUsuario = async (id) => {
   return response.data;
 };
 
-export const revocarEmpresaPropietario = async (id) => {
-  const response = await api.put(`/usuarios/${id}/revocar-empresa`);
-  return response.data;
-};
-
 export const createHistorialSueldo = async (data) => {
   const response = await api.post("/historiales", data);
   return response.data;
