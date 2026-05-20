@@ -10,11 +10,14 @@ import FasesForm from "./FasesForm";
 import { notifySuccess, notifyError } from "../../utils/notify";
 
 const normalizeFases = (data) =>
-  (Array.isArray(data) ? data : []).map((fase) => ({
-    ...fase,
-    horas_estimadas: Number(fase.horas_estimadas ?? 0),
-    horas_trabajadas: Number(fase.horas_trabajadas ?? fase.horas_registradas ?? 0),
-  }));
+  (Array.isArray(data) ? data : [])
+    .filter((f) => f?.is_active !== false && f?.activo !== false) // Filtramos únicamente las fases activas (HU-37)
+    .map((fase) => ({
+      ...fase,
+      horas_estimadas: Number(fase.horas_estimadas ?? 0),
+      horas_trabajadas: Number(fase.horas_trabajadas ?? fase.horas_registradas ?? 0),
+    }));
+
 const getHorasFaseId = (registro) => registro.id_fase ?? registro.fase_id ?? null;
 const getHorasFaseNombre = (registro) => registro.fase_nombre ?? registro.nombre_fase ?? registro.fase ?? "";
 
@@ -22,7 +25,7 @@ const FasesLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null,
   const params = useParams();
   const { user } = useAuth();
   const proyectoId = proyectoIdProp || params.proyectoId || params.id;
-  const canManage = user?.rol === "propietario";
+  const canManage = user?.rol === "propietario"; // Criterio de aceptación HU-37 (Solo el dueño puede eliminar/gestionar)
 
   const [proyecto, setProyecto] = useState(null);
   const [fases, setFases] = useState([]);
@@ -33,6 +36,7 @@ const FasesLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null,
   const [search, setSearch] = useState("");
   const [orderBy, setOrderBy] = useState("fecha");
   const [confirm, setConfirm] = useState(null);
+  const [deactivatingId, setDeactivatingId] = useState(null); // Estado de carga in-line para el botón
 
   const fetchFases = useCallback(async () => {
     if (!proyectoId) {
@@ -90,6 +94,7 @@ const FasesLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null,
 
     return map;
   }, [horasResumen]);
+
   const fasesConHoras = useMemo(() => {
     const map = new Map();
 
@@ -144,6 +149,7 @@ const FasesLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null,
     if (byName !== undefined) return byName;
     return 0;
   };
+
   const totalHorasRegistradas = fasesConHoras.reduce((acc, fase) => acc + Number(getHorasRegistradas(fase) || 0), 0);
 
   const handleSaved = () => {
@@ -158,21 +164,27 @@ const FasesLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null,
     setShowForm(true);
   };
 
+  // Consumo del endpoint PUT para desactivación lógica de fase (HU-37)
   const handleDelete = async () => {
     if (!confirm) return;
+    const targetId = confirm.id_fase;
 
     try {
-      const res = await desactivarFase(confirm.id_fase);
-      if (res?.success) {
-        notifySuccess("Fase eliminada correctamente.");
+      setDeactivatingId(targetId);
+      const res = await desactivarFase(targetId);
+      if (res?.success || res) {
+        notifySuccess("Fase desactivada correctamente.");
+        setFases((prev) => prev.filter((f) => (f.id_fase || f.id) !== targetId));
         setConfirm(null);
         fetchFases();
         onChanged?.();
       } else {
-        notifyError(res?.message || "No se pudo eliminar la fase.");
+        notifyError(res?.message || "No se pudo desactivar la fase.");
       }
     } catch (err) {
-      notifyError(err.response?.data?.message || "No se pudo eliminar la fase.");
+      notifyError(err.response?.data?.message || "No se pudo desactivar la fase.");
+    } finally {
+      setDeactivatingId(null);
     }
   };
 
@@ -302,28 +314,36 @@ const FasesLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null,
         filters={filters}
         emptyIcon="bi-layers"
         emptyMessage="Sin fases"
-        renderActions={canManage ? (fase) => (
-          <div className="d-flex gap-2 justify-content-end">
-            <button className="btn btn-sm btn-success" title="Editar" onClick={() => handleEdit(fase.id_fase)}>
-              <i className="bi bi-pencil-square"></i>
-            </button>
-            <button className="btn btn-sm btn-danger" title="Eliminar" onClick={() => setConfirm(fase)}>
-              <i className="bi bi-trash-fill"></i>
-            </button>
-          </div>
-        ) : undefined}
+        renderActions={canManage ? (fase) => {
+          const currentId = fase.id_fase;
+          const isDeactivatingThis = deactivatingId === currentId;
+          return (
+            <div className="d-flex gap-2 justify-content-end">
+              <button className="btn btn-sm btn-success" title="Editar" onClick={() => handleEdit(fase.id_fase)} disabled={Boolean(deactivatingId)}>
+                <i className="bi bi-pencil-square"></i>
+              </button>
+              <button className="btn btn-sm btn-danger" title="Eliminar" onClick={() => setConfirm(fase)} disabled={Boolean(deactivatingId)}>
+                {isDeactivatingThis ? (
+                  <span className="spinner-border spinner-border-sm"></span>
+                ) : (
+                  <i className="bi bi-trash-fill"></i>
+                )}
+              </button>
+            </div>
+          );
+        } : undefined}
       />
 
-      {confirm && (
-        <ConfirmModal
-          danger
-          title="Eliminar fase"
-          message={`¿Seguro que quieres eliminar la fase "${confirm.nombre}"?`}
-          confirmLabel={<><i className="bi bi-trash-fill me-2"></i>Eliminar</>}
-          onConfirm={handleDelete}
-          onCancel={() => setConfirm(null)}
-        />
-      )}
+      <ConfirmModal
+        show={Boolean(confirm)}
+        title="¿Desactivar Fase?"
+        message={`¿Seguro que quieres desactivar la fase "${confirm?.nombre}"? Los colaboradores ya no podrán registrar tiempos en esta etapa.`}
+        confirmText="Confirmar"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={handleDelete}
+        onCancel={() => setConfirm(null)}
+      />
     </div>
   );
 
