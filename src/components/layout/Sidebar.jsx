@@ -27,6 +27,7 @@ const getNavItems = (rol) => {
     case "lider":
       return [
         { to: "/panel-lider", icon: "bi-grid-fill", label: "Mi Panel" },
+        { to: "/mis-marcajes", icon: "bi-calendar-check", label: "Mis Marcajes" }, // AÑADIDO: Vista de asistencia para el Líder
         { to: "/proyectos", icon: "bi-kanban-fill", label: "Proyectos" },
         { to: "/notas", icon: "bi-journal-text", label: "Notas" },
         { to: "/perfil", icon: "bi-person-circle", label: "Mi Perfil" },
@@ -138,8 +139,8 @@ const Sidebar = () => {
         })}
       </nav>
 
-      {/* Marcaje de Entrada - Solo visible para Empleados */}
-      {rol === "empleado" && (
+      {/* Marcaje de Entrada - CORRECCIÓN: Visible tanto para Empleados como para Líderes */}
+      {(rol === "empleado" || rol === "lider") && (
         <div className="px-3 mb-3">
           <ButtonMarcaje />
         </div>
