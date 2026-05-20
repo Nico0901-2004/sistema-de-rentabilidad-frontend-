@@ -45,6 +45,7 @@ const AdminUsuarioList = () => {
     setShowForm(true);
   };
 
+  // Ejecución de la desactivación lógica para la HU-14
   const handleDelete = async () => {
     if (!confirm) return;
 
@@ -128,9 +129,6 @@ const AdminUsuarioList = () => {
         <div className="row g-3 mb-4 stagger">
           {[
             { label: "Total propietarios", value: owners.length, icon: "bi-people-fill", color: "var(--primary)", bg: "rgba(79,70,229,.1)" },
-            // TEMP: oculto para no mostrar estado en frontend
-            // { label: "Activos", value: owners.filter(o => o.is_active).length, icon: "bi-check-circle-fill", color: "var(--success)", bg: "rgba(16,185,129,.1)" },
-            // { label: "Inactivos", value: owners.filter(o => !o.is_active).length, icon: "bi-x-circle-fill", color: "var(--danger)", bg: "rgba(239,68,68,.1)" },
           ].map((s, i) => (
             <div className="col-12 col-sm-4" key={i}>
               <div className="stat-card card-3d animate-fadeInUp">
@@ -171,30 +169,38 @@ const AdminUsuarioList = () => {
           emptyIcon="bi-people"
           emptyMessage="Sin propietarios"
           rowClassName="animate-fadeIn"
-          renderActions={(o) => (
-            <div className="d-flex gap-2 justify-content-end">
-              <button className="btn btn-sm btn-success" title="Editar propietario" onClick={() => handleEdit(o)}>
-                <i className="bi bi-pencil-square"></i>
-              </button>
-              <button className="btn btn-sm btn-danger" title="Eliminar propietario" onClick={() => setConfirm(o)}>
-                <i className="bi bi-trash-fill"></i>
-              </button>
-            </div>
-          )}
+          renderActions={(o) => {
+            const currentId = o.id_usuario;
+            const isDeletingThis = deleting && confirm?.id_usuario === currentId;
+            return (
+              <div className="d-flex gap-2 justify-content-end">
+                <button className="btn btn-sm btn-success" title="Editar propietario" onClick={() => handleEdit(o)} disabled={deleting}>
+                  <i className="bi bi-pencil-square"></i>
+                </button>
+                <button className="btn btn-sm btn-danger" title="Eliminar propietario" onClick={() => setConfirm(o)} disabled={deleting}>
+                  {isDeletingThis ? (
+                    <span className="spinner-border spinner-border-sm"></span>
+                  ) : (
+                    <i className="bi bi-trash-fill"></i>
+                  )}
+                </button>
+              </div>
+            );
+          }}
         />
       </div>
 
-      {confirm && (
-        <ConfirmModal
-          danger
-          title="Eliminar propietario"
-          message={`¿Seguro que quieres eliminar al propietario "${confirm.nombre}"?`}
-          confirmLabel={<><i className="bi bi-trash-fill me-2"></i>Eliminar</>}
-          loading={deleting}
-          onConfirm={handleDelete}
-          onCancel={() => !deleting && setConfirm(null)}
-        />
-      )}
+      {/* Modal de Confirmación Integrado con los Contratos de tu UI (HU-14) */}
+      <ConfirmModal
+        show={Boolean(confirm)}
+        title="¿Eliminar Propietario?"
+        message={`¿Estás seguro de que deseas desactivar al propietario "${confirm?.nombre}"? Esta acción restringirá de forma inmediata sus accesos administrativos.`}
+        confirmText="Confirmar"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={handleDelete}
+        onCancel={() => !deleting && setConfirm(null)}
+      />
     </Layout>
   );
 };
