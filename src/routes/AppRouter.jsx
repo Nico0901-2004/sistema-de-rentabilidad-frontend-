@@ -117,13 +117,21 @@ export default function AppRouter() {
       <Route path="/mi-espacio" element={
         <RequireAuth><RequireRole roles={["empleado"]}><Dashboard /></RequireRole></RequireAuth>
       } />
+
+      {/* ══════════ GESTIÓN DE HORAS MODULADO COMPARTIDO (HU 30) ══════════ */}
       <Route path="/mis-horas" element={
-        <RequireAuth><RequireRole roles={["empleado"]}><MisHorasList /></RequireRole></RequireAuth>
+        <RequireAuth>
+          {/* CORRECCIÓN: Permitimos que el líder acceda a registrar/ver su desglose de horas igual que el empleado */}
+          <RequireRole roles={["empleado", "lider"]}><MisHorasList /></RequireRole>
+        </RequireAuth>
       } />
 
-      {/* ══════════ ASISTENCIA (HU 34) ══════════ */}
+      {/* ══════════ ASISTENCIA COMPARTIDA (HU 34) ══════════ */}
       <Route path="/mis-marcajes" element={
-        <RequireAuth><RequireRole roles={["empleado"]}><MarcajesList /></RequireRole></RequireAuth>
+        <RequireAuth>
+          {/* CORRECCIÓN: Permitimos al Líder acceder a su vista de historial de asistencia técnica */}
+          <RequireRole roles={["empleado", "lider"]}><MarcajesList /></RequireRole>
+        </RequireAuth>
       } />
 
       {/* ══════════ COMPARTIDAS ══════════ */}
