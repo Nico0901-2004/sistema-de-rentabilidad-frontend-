@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext"; // Importación del contexto de autenticación
 import { getMisMarcajes, marcarEntrada, marcarSalida, createHora } from "../../services/horasService";
-import { getMisProyectos } from "../../services/proyectoService"; // CORRECCIÓN: Usamos la función real exportada
+import { getMisProyectos, getProyectosDisponibles } from "../../services/proyectoService"; // Importación de ambos endpoints relacionales
 import { getFasesByProyecto } from "../../services/faseService";
 import { notifyError, notifySuccess } from "../../utils/notify";
 
@@ -18,6 +19,7 @@ const getTodayKey = () => `marcaje_${getTodayDate()}`;
 
 const ButtonMarcaje = () => {
   const navigate = useNavigate();
+  const { user } = useAuth(); // Extracción del usuario y rol del contexto global
   const storageKey = useMemo(() => getTodayKey(), []);
   
   const [loading, setLoading] = useState(false);
@@ -30,7 +32,7 @@ const ButtonMarcaje = () => {
   const [proyectosDisponibles, setProyectosDisponibles] = useState([]);
   const [fasesPorProyecto, setFasesPorProyecto] = useState({}); 
   const [filasHoras, setFilasHoras] = useState([
-    { id_proyecto: "", id_fase: "", horas: 1, descripcion: "" }
+    { id_proyecto: "", id_fase: "", horas: 0.5, descripcion: "" } // Inicializado en 0.5h para pruebas ágiles
   ]);
   const [errorModal, setErrorModal] = useState("");
 
@@ -67,7 +69,7 @@ const ButtonMarcaje = () => {
     cargarEstadoMarcaje();
   }, [cargarEstadoMarcaje]);
 
-  const handleMarcarEntrada = async () => {
+const handleMarcarEntrada = async () => {
     if (loading || marcaje.entrada) return;
     try {
       setLoading(true);
@@ -84,10 +86,21 @@ const ButtonMarcaje = () => {
       notifySuccess(okMessage);
       await cargarEstadoMarcaje();
     } catch (error) {
-      const errorMessage = error?.response?.data?.message || "No se pudo registrar la entrada.";
-      setEstado("error");
-      setMensaje(errorMessage);
-      notifyError(errorMessage);
+      const status = error?.response?.status;
+      const backendMessage = error?.response?.data?.message;
+
+      // CONTROL DE PERMISOS EN EL CLIENTE PARA EL LÍDER
+      if (status === 403 && user?.rol === "lider") {
+        const infoLider = "Tu perfil de Líder cuenta con flexibilidad horaria y no requiere registrar asistencia en el reloj diario.";
+        setEstado("error");
+        setMensaje(infoLider);
+        notifyError("Acción restringida para Líderes");
+      } else {
+        const errorMessage = backendMessage || "No se pudo registrar la entrada.";
+        setEstado("error");
+        setMensaje(errorMessage);
+        notifyError(errorMessage);
+      }
       await cargarEstadoMarcaje();
     } finally {
       setLoading(false);
@@ -107,12 +120,18 @@ const ButtonMarcaje = () => {
       setMarcaje({ entrada: true, salida: true });
       localStorage.setItem(storageKey, JSON.stringify({ entrada: true, salida: true }));
       
-      // CORRECCIÓN: Consumimos la función legítima getMisProyectos con los accesos correctos del empleado
-      const resProyectos = await getMisProyectos();
+      // EVALUACIÓN DE ENDPOINTS AUTORIZADOS SEGÚN EL ROL DEL USUARIO
+      let resProyectos;
+      if (user?.rol === "lider") {
+        resProyectos = await getProyectosDisponibles(); // Endpoint con permisos para Líderes
+      } else {
+        resProyectos = await getMisProyectos(); // Endpoint con permisos para Empleados
+      }
+      
       const proyectos = resProyectos?.success ? resProyectos.data : (Array.isArray(resProyectos) ? resProyectos : []);
       
       setProyectosDisponibles(proyectos);
-      setFilasHoras([{ id_proyecto: "", id_fase: "", horas: 1, descripcion: "" }]);
+      setFilasHoras([{ id_proyecto: "", id_fase: "", horas: 0.5, descripcion: "" }]);
       
       setShowModalHoras(true);
       notifySuccess(okMessage);
@@ -152,7 +171,7 @@ const ButtonMarcaje = () => {
   };
 
   const agregarFila = () => {
-    setFilasHoras([...filasHoras, { id_proyecto: "", id_fase: "", horas: 1, descripcion: "" }]);
+    setFilasHoras([...filasHoras, { id_proyecto: "", id_fase: "", horas: 0.5, descripcion: "" }]);
   };
 
   const eliminarFila = (index) => {

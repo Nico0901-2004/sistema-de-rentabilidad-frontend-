@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import Layout from "../../components/layout/Layout";
 import DataTable from "../../components/ui/DataTable";
 import { getMisMarcajes } from "../../services/horasService";
+import { useAuth } from "../../context/AuthContext"; // Importación añadida para validar el rol del usuario
 import { notifyError } from "../../utils/notify";
 
 const formatHoraLocal = (value) => {
@@ -49,13 +50,18 @@ const formatFechaLocal = (value) => {
 };
 
 const MarcajesList = () => {
+  const { user } = useAuth(); // Extracción del usuario actual de la sesión
   const [marcajes, setMarcajes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isLiderRestricted, setIsLiderRestricted] = useState(false);
 
   const fetchMarcajes = useCallback(async () => {
     try {
       setLoading(true);
+      setError("");
+      setIsLiderRestricted(false);
+
       const res = await getMisMarcajes();
       if (res.success) {
         // Ordenar por fecha descendente (más reciente primero)
@@ -65,12 +71,21 @@ const MarcajesList = () => {
         setError("No se pudo cargar el historial de marcajes.");
       }
     } catch (err) {
-      setError("Error de conexión con el servidor.");
-      notifyError("Error al cargar marcajes");
+      const status = err?.response?.status;
+      
+      // CONTROL EXCLUSIVO EN EL FRONTEND PARA EL ROL LÍDER:
+      // Si el servidor retorna 403 Forbidden para el líder, evitamos alertar un falso error de conexión.
+      if (status === 403 && user?.rol === "lider") {
+        setIsLiderRestricted(true);
+        setError("El sistema de registro histórico de asistencia está configurado por el backend únicamente para personal con tipo de sueldo mensual.");
+      } else {
+        setError("Error de conexión con el servidor.");
+        notifyError("Error al cargar marcajes");
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     fetchMarcajes();
@@ -103,7 +118,14 @@ const MarcajesList = () => {
       header: "Estado",
       headerClassName: "text-center",
       cellClassName: "text-center",
-      render: () => <span className="badge rounded-pill bg-light text-dark border small px-3">Completado</span>,
+      render: (m) => {
+        const completado = m.hora_entrada && m.hora_salida;
+        return (
+          <span className={`badge rounded-pill border small px-3 ${completado ? "bg-light text-dark" : "bg-warning-subtle text-warning"}`}>
+            {completado ? "Completado" : "Jornada Activa"}
+          </span>
+        );
+      },
     },
   ];
 
@@ -115,16 +137,31 @@ const MarcajesList = () => {
           <p className="text-muted small mb-0">Historial de asistencia (Entradas y Salidas)</p>
         </div>
 
-        <DataTable
-          columns={columns}
-          data={marcajes}
-          loading={loading}
-          error={error}
-          rowKey="id_marcaje"
-          emptyIcon="bi-calendar-x"
-          emptyMessage="No se encontraron registros de marcaje"
-          skeletonRows={5}
-        />
+        {/* Si el Líder es restringido por los permisos nativos del Back, renderizamos una UI informativa limpia */}
+        {isLiderRestricted ? (
+          <div className="card border-0 shadow-sm rounded-4 p-5 text-center bg-white border animate-scaleIn">
+            <div className="mb-3">
+              <div className="rounded-circle bg-light d-inline-flex align-items-center justify-content-center" style={{ width: 60, height: 60 }}>
+                <i className="bi bi-shield-lock-fill text-muted fs-4"></i>
+              </div>
+            </div>
+            <h5 className="fw-bold text-dark mb-2">Apartado de Asistencia Informativa</h5>
+            <p className="text-muted small mx-auto mb-0" style={{ maxWidth: "480px" }}>
+              {error}
+            </p>
+          </div>
+        ) : (
+          <DataTable
+            columns={columns}
+            data={marcajes}
+            loading={loading}
+            error={error}
+            rowKey="id_marcaje"
+            emptyIcon="bi-calendar-x"
+            emptyMessage="No se encontraron registros de marcaje"
+            skeletonRows={5}
+          />
+        )}
       </div>
     </Layout>
   );

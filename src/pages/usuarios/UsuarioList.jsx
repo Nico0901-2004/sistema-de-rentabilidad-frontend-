@@ -3,7 +3,7 @@ import Layout from "../../components/layout/Layout";
 import UsuarioForm from "./UsuarioForm";
 import DataTable from "../../components/ui/DataTable";
 import ConfirmModal from "../../components/ui/ConfirmModal";
-import { getUsuarios, deleteUsuario } from "../../services/usuarioService";
+import { getUsuarios, desactivarUsuario } from "../../services/usuarioService"; // CORRECCIÓN: Usamos desactivarUsuario de forma lógica
 import { notifySuccess, notifyError } from "../../utils/notify";
 
 const ROL_BADGE = { lider: "badge-lider", empleado: "badge-empleado" };
@@ -17,6 +17,7 @@ const UsuarioList = () => {
   const [editingUsuario, setEditingUsuario] = useState(null);
   const [search, setSearch]               = useState("");
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [deactivatingId, setDeactivatingId] = useState(null); // Estado para animar el botón en carga
 
   const fetchUsuarios = useCallback(async () => {
     try {
@@ -24,8 +25,12 @@ const UsuarioList = () => {
       setError("");
 
       const response = await getUsuarios();
-      if (response.success) setUsuarios((response.data || []).filter((u) => u?.is_active !== false));
-      else setError("No se pudo cargar la lista de usuarios.");
+      // Mantenemos el filtro para mostrar únicamente los colaboradores activos
+      if (response.success) {
+        setUsuarios((response.data || []).filter((u) => u?.is_active !== false));
+      } else {
+        setError("No se pudo cargar la lista de usuarios.");
+      }
     } catch (err) {
       setError(err?.response?.data?.message || "Error al conectar con el servidor.");
     } finally {
@@ -39,15 +44,25 @@ const UsuarioList = () => {
 
   const handleEdit = (u) => { setEditingUsuario(u); setShowForm(true); };
 
+  // Ejecución de la desactivación lógica (HU-14)
   const handleDelete = async () => {
     if (!confirmDelete) return;
+    const targetId = confirmDelete.id_usuario;
+
     try {
-      await deleteUsuario(confirmDelete.id_usuario);
-      setUsuarios((prev) => prev.filter((x) => x.id_usuario !== confirmDelete.id_usuario));
-      notifySuccess("Usuario eliminado correctamente");
+      setDeactivatingId(targetId);
+      const res = await desactivarUsuario(targetId);
+      
+      if (res?.success || res) {
+        setUsuarios((prev) => prev.filter((x) => x.id_usuario !== targetId));
+        notifySuccess(`Usuario "${confirmDelete.nombre}" desactivado correctamente`);
+      } else {
+        notifyError("No se pudo procesar la desactivación lógica.");
+      }
     } catch (err) {
-      notifyError(err.response?.data?.message || "Error al eliminar el usuario.");
+      notifyError(err.response?.data?.message || "Error al desactivar el usuario.");
     } finally {
+      setDeactivatingId(null);
       setConfirmDelete(null);
     }
   };
@@ -160,29 +175,37 @@ const UsuarioList = () => {
           filters={filters}
           emptyIcon="bi-people"
           emptyMessage="Sin usuarios"
-          renderActions={(u) => (
-            <div className="d-flex gap-2 justify-content-end">
-              <button className="btn btn-sm btn-success" title="Editar" onClick={() => handleEdit(u)}>
-                <i className="bi bi-pencil-square"></i>
-              </button>
-              <button className="btn btn-sm btn-danger" title="Eliminar" onClick={() => setConfirmDelete(u)}>
-                <i className="bi bi-trash-fill"></i>
-              </button>
-            </div>
-          )}
+          renderActions={(u) => {
+            const currentId = u.id_usuario;
+            return (
+              <div className="d-flex gap-2 justify-content-end">
+                <button className="btn btn-sm btn-success" title="Editar" onClick={() => handleEdit(u)} disabled={deactivatingId === currentId}>
+                  <i className="bi bi-pencil-square"></i>
+                </button>
+                <button className="btn btn-sm btn-danger" title="Eliminar" onClick={() => setConfirmDelete(u)} disabled={deactivatingId === currentId}>
+                  {deactivatingId === currentId ? (
+                    <span className="spinner-border spinner-border-sm"></span>
+                  ) : (
+                    <i className="bi bi-trash-fill"></i>
+                  )}
+                </button>
+              </div>
+            );
+          }}
         />
       </div>
 
-      {confirmDelete && (
-        <ConfirmModal
-          title="Eliminar usuario"
-          message="¿Seguro que quieres eliminar este usuario?"
-          confirmLabel={<><i className="bi bi-trash-fill me-2"></i>Eliminar</>}
-          danger
-          onConfirm={handleDelete}
-          onCancel={() => setConfirmDelete(null)}
-        />
-      )}
+      {/* Modal de Confirmación Integrado con los Contratos de tu UI (HU-14) */}
+      <ConfirmModal
+        show={Boolean(confirmDelete)}
+        title="¿Desactivar Colaborador?"
+        message={`¿Estás completamente seguro de que deseas desactivar a "${confirmDelete?.nombre}"? Esta acción revocará de forma inmediata todos sus permisos lógicos de acceso al sistema.`}
+        confirmText="Confirmar"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </Layout>
   );
 };
