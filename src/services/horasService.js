@@ -1,10 +1,5 @@
 import api from "./api";
 
-export const getHorasByLider = async () => {
-  const response = await api.get("/horas/lider");
-  return response.data;
-};
-
 export const getHoras = async () => {
   const response = await api.get("/horas");
   return response.data;

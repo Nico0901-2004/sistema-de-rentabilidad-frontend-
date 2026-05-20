@@ -4,11 +4,10 @@ import DataTable from "../../components/ui/DataTable";
 import ProyectoDetailModal from "./ProyectoDetailModal";
 import ProjectContentModal from "./ProjectContentModal";
 import FasesLists from "../fases/FasesLists";
-import NotasLists from "../notas/NotasLists";
 import { getFasesByProyecto } from "../../services/faseService";
 import { finalizarProyecto, getHorasResumenProyecto, getMisProyectos } from "../../services/proyectoService";
 import { notifyError, notifySuccess } from "../../utils/notify";
-import { getServicioNombre, getTotalHorasEstimadas, getTotalHorasResumen, isProyectoActivo, normalizeHorasResumen, normalizeProyectoFases } from "./projectUtils";
+import { formatShortDate, getServicioNombre, getTotalHorasEstimadas, isProyectoActivo, normalizeHorasResumen, normalizeProyectoFases } from "./projectUtils";
 
 const getTodayDateValue = () => {
   const today = new Date();
@@ -132,7 +131,6 @@ const LiderProjectsView = () => {
   );
 
   const columns = [
-    { header: "", key: "indicator", style: { width: 30 }, render: () => <i className="bi bi-chevron-right" style={{ color: "var(--primary)", fontSize: 12 }}></i> },
     {
       header: "Proyecto",
       render: (p) => {
@@ -145,30 +143,23 @@ const LiderProjectsView = () => {
             </div>
             <div>
               <span className={`fw-semibold d-block ${!active ? "text-muted" : ""}`}>{p.nombre}</span>
-              {p.horas_estimadas && <span className="text-muted" style={{ fontSize: 11 }}>{p.horas_estimadas}h estimadas</span>}
             </div>
           </div>
         );
       },
     },
-    { header: "Servicio", cellClassName: "text-muted small", render: (p) => getServicioNombre(p) },
     {
-      header: "Horas registradas",
+      header: "Horas estimadas",
       headerClassName: "text-center",
       cellClassName: "text-center",
       render: (p) => {
-        const resumenProyecto = getResumenProyecto(p.id_proyecto);
-        const totalHorasProyecto = getTotalHorasResumen(resumenProyecto);
         const fasesProyecto = getFasesProyecto(p.id_proyecto);
         const totalHorasEstimadas = getTotalHorasEstimadas(fasesProyecto);
 
         return (
           <>
             <span className="fw-bold" style={{ color: "var(--primary)" }}>
-              {loadingHoras ? "..." : `${totalHorasProyecto.toFixed(1)}h`}
-            </span>
-            <span className="d-block text-muted" style={{ fontSize: 11 }}>
-              {totalHorasEstimadas.toFixed(1)}h estimadas
+              {loadingHoras ? "..." : `${totalHorasEstimadas.toFixed(1)}h`}
             </span>
             {fasesProyecto.length > 0 && (
               <span className="d-block text-muted" style={{ fontSize: 11 }}>
@@ -180,16 +171,21 @@ const LiderProjectsView = () => {
       },
     },
     {
-      header: "Fechas",
+      header: "Fecha inicio",
       cellClassName: "text-muted small",
-      render: (p) => (
-        <>
-          {p.fecha_inicio ? p.fecha_inicio.slice(0, 10) : "—"}
-          {p.fecha_fin_estimada ? <><br /><span style={{ fontSize: 10 }}>Est: {p.fecha_fin_estimada.slice(0, 10)}</span></> : ""}
-          {p.fecha_fin_real && <><br /><span className="text-success" style={{ fontSize: 10 }}>Real: {p.fecha_fin_real.slice(0, 10)}</span></>}
-        </>
-      ),
+      render: (p) => formatShortDate(p.fecha_inicio),
     },
+    {
+      header: "Fecha fin estimada",
+      cellClassName: "text-muted small",
+      render: (p) => formatShortDate(p.fecha_fin_estimada),
+    },
+    {
+      header: "Fecha fin real",
+      cellClassName: "text-muted small",
+      render: (p) => p.fecha_fin_real ? <span className="text-success">{formatShortDate(p.fecha_fin_real)}</span> : "—",
+    },
+    { header: "Servicio", cellClassName: "text-muted small", render: (p) => getServicioNombre(p) },
   ];
 
   const filters = (
@@ -236,9 +232,6 @@ const LiderProjectsView = () => {
                 <button className="btn btn-sm btn-primary shadow-sm" title="Fases" onClick={() => setContentModal({ type: "fases", proyecto: p })}>
                   <i className="bi bi-layers"></i>
                 </button>
-                <button className="btn btn-sm btn-info shadow-sm text-white" title="Notas" onClick={() => setContentModal({ type: "notas", proyecto: p })}>
-                  <i className="bi bi-journal-text"></i>
-                </button>
                 {active && (
                   <button
                     className="btn btn-sm btn-danger shadow-sm"
@@ -273,18 +266,13 @@ const LiderProjectsView = () => {
       />
       {contentModal && (
         <ProjectContentModal onClose={() => setContentModal(null)}>
-          {contentModal.type === "fases" ? (
+          {contentModal.type === "fases" && (
             <FasesLists
               embedded
               proyectoId={contentModal.proyecto.id_proyecto}
+              proyecto={contentModal.proyecto}
               horasResumen={getResumenProyecto(contentModal.proyecto.id_proyecto)}
               onChanged={fetch}
-              onClose={() => setContentModal(null)}
-            />
-          ) : (
-            <NotasLists
-              embedded
-              proyectoId={contentModal.proyecto.id_proyecto}
               onClose={() => setContentModal(null)}
             />
           )}

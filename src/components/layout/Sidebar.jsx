@@ -28,8 +28,7 @@ const getNavItems = (rol) => {
       return [
         { to: "/panel-lider", icon: "bi-grid-fill", label: "Mi Panel" },
         { to: "/proyectos", icon: "bi-kanban-fill", label: "Proyectos" },
-        { to: "/usuarios", icon: "bi-people-fill", label: "Empleados" },
-        { to: "/horas", icon: "bi-clock-history", label: "Reporte de Horas" },
+        { to: "/notas", icon: "bi-journal-text", label: "Notas" },
         { to: "/perfil", icon: "bi-person-circle", label: "Mi Perfil" },
       ];
     case "empleado":

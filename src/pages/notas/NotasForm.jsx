@@ -5,10 +5,19 @@ import { createNota, updateNota } from "../../services/notaService";
 import { notifySuccess, notifyError } from "../../utils/notify"; // Importación de utilidades de feedback
 
 const EMPTY = {
+  id_proyecto: "",
   descripcion: "",
 };
 
-const NotasForm = ({ nota, proyectoId, onSaved, onCancel }) => {
+const getTodayDateValue = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const NotasForm = ({ nota, proyectoId, proyectos = [], showProjectSelect = false, onSaved, onCancel }) => {
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -18,14 +27,18 @@ const NotasForm = ({ nota, proyectoId, onSaved, onCancel }) => {
 
   useEffect(() => {
     if (!nota) {
-      setForm(EMPTY);
+      setForm({
+        ...EMPTY,
+        id_proyecto: proyectoId || "",
+      });
       return;
     }
 
     setForm({
+      id_proyecto: nota.id_proyecto || proyectoId || "",
       descripcion: nota.descripcion || "",
     });
-  }, [nota]);
+  }, [nota, proyectoId]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -56,7 +69,9 @@ const NotasForm = ({ nota, proyectoId, onSaved, onCancel }) => {
       return;
     }
 
-    if (!nota?.id_nota && !proyectoId) {
+    const selectedProyectoId = form.id_proyecto || proyectoId;
+
+    if (!nota?.id_nota && !selectedProyectoId) {
       const msg = "Selecciona un proyecto antes de registrar notas.";
       setError(msg);
       notifyError(msg);
@@ -68,7 +83,7 @@ const NotasForm = ({ nota, proyectoId, onSaved, onCancel }) => {
       const payload = { descripcion };
       const res = nota?.id_nota
         ? await updateNota(nota.id_nota, payload)
-        : await createNota(proyectoId, payload);
+        : await createNota(selectedProyectoId, payload);
 
       if (res?.success) {
         // ── SUBTAREA: FEEDBACK VISUAL (ÉXITO) ─────────────────────────
@@ -111,6 +126,38 @@ const NotasForm = ({ nota, proyectoId, onSaved, onCancel }) => {
         )}
 
         <form onSubmit={handleSubmit}>
+          {showProjectSelect && (
+            <div className="mb-3">
+              <label className="form-label fw-semibold small">Proyecto *</label>
+              <select
+                className="form-select"
+                name="id_proyecto"
+                value={form.id_proyecto}
+                onChange={handleChange}
+                required
+                disabled={loading || Boolean(nota?.id_nota)}
+              >
+                <option value="">Selecciona un proyecto</option>
+                {proyectos.map((proyecto) => (
+                  <option key={proyecto.id_proyecto} value={proyecto.id_proyecto}>
+                    {proyecto.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="mb-3">
+            <label className="form-label fw-semibold small">Fecha</label>
+            <input
+              type="date"
+              className="form-control"
+              value={nota?.fecha ? String(nota.fecha).slice(0, 10) : getTodayDateValue()}
+              disabled
+              readOnly
+            />
+          </div>
+
           <TextAreaField
             className="mb-2"
             label="Descripción de la nota *"
@@ -136,7 +183,7 @@ const NotasForm = ({ nota, proyectoId, onSaved, onCancel }) => {
             onCancel={onCancel}
             loading={loading}
             loadingLabel="Procesando..."
-            submitLabel={nota?.id_nota ? "Actualizar nota" : "Guardar nota"}
+            submitLabel={nota?.id_nota ? "Actualizar nota" : "Registrar nota"}
             submitClassName="btn btn-warning flex-fill fw-bold text-dark"
           />
         </form>

@@ -19,7 +19,6 @@ import NotasLists       from "../pages/notas/NotasLists";
 import Rentabilidad     from "../pages/rentabilidad/Rentabilidad";
 
 // Horas y Asistencia
-import HorasList        from "../pages/horas/HorasList";
 import MisHorasList     from "../pages/horas/MisHorasList";
 import MarcajesList     from "../pages/horas/MarcajesList"; // HU 34
 
@@ -27,7 +26,7 @@ import MarcajesList     from "../pages/horas/MarcajesList"; // HU 34
 import ProyectoList     from "../pages/proyectos/ProyectoList";
 import MiPerfil         from "../pages/profile/MiPerfil";
 
-/* ── Admin sees AdminUsuarioList on /usuarios; propietario/lider see UsuarioList */
+/* ── Admin sees AdminUsuarioList on /usuarios; propietario sees UsuarioList */
 const UsuarioListRoute = () => {
   const { user } = useAuth();
   return user?.rol === "admin" ? <AdminUsuarioList /> : <UsuarioList />;
@@ -97,7 +96,7 @@ export default function AppRouter() {
         <RequireAuth><RequireRole roles={["propietario"]}><EmpresaConfig /></RequireRole></RequireAuth>
       } />
       <Route path="/usuarios" element={
-        <RequireAuth><RequireRole roles={["admin", "propietario", "lider"]}><UsuarioListRoute /></RequireRole></RequireAuth>
+        <RequireAuth><RequireRole roles={["admin", "propietario"]}><UsuarioListRoute /></RequireRole></RequireAuth>
       } />
       <Route path="/servicios" element={
         <RequireAuth><RequireRole roles={["propietario"]}><ServicioList /></RequireRole></RequireAuth>
@@ -110,8 +109,8 @@ export default function AppRouter() {
       <Route path="/panel-lider" element={
         <RequireAuth><RequireRole roles={["lider"]}><Dashboard /></RequireRole></RequireAuth>
       } />
-      <Route path="/horas" element={
-        <RequireAuth><RequireRole roles={["lider"]}><HorasList /></RequireRole></RequireAuth>
+      <Route path="/notas" element={
+        <RequireAuth><RequireRole roles={["lider"]}><NotasLists /></RequireRole></RequireAuth>
       } />
 
       {/* ══════════ EMPLEADO ══════════ */}
@@ -124,7 +123,7 @@ export default function AppRouter() {
 
       {/* ══════════ ASISTENCIA (HU 34) ══════════ */}
       <Route path="/mis-marcajes" element={
-        <RequireAuth><RequireRole roles={["lider", "empleado"]}><MarcajesList /></RequireRole></RequireAuth>
+        <RequireAuth><RequireRole roles={["empleado"]}><MarcajesList /></RequireRole></RequireAuth>
       } />
 
       {/* ══════════ COMPARTIDAS ══════════ */}

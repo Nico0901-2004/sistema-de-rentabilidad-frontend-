@@ -18,7 +18,7 @@ const normalizeFases = (data) =>
 const getHorasFaseId = (registro) => registro.id_fase ?? registro.fase_id ?? null;
 const getHorasFaseNombre = (registro) => registro.fase_nombre ?? registro.nombre_fase ?? registro.fase ?? "";
 
-const FasesLists = ({ proyectoId: proyectoIdProp, embedded = false, onClose, onChanged, horasResumen = [] }) => {
+const FasesLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null, embedded = false, onClose, onChanged, horasResumen = [] }) => {
   const params = useParams();
   const { user } = useAuth();
   const proyectoId = proyectoIdProp || params.proyectoId || params.id;
@@ -64,13 +64,17 @@ const FasesLists = ({ proyectoId: proyectoIdProp, embedded = false, onClose, onC
   }, [proyectoId]);
 
   useEffect(() => {
-    if (!proyectoId) return;
+    if (proyectoProp) {
+      setProyecto(proyectoProp);
+      return;
+    }
+    if (!proyectoId || user?.rol === "lider") return;
     getProyectoById(proyectoId)
       .then((res) => {
         if (res?.success) setProyecto(res.data);
       })
       .catch(() => {});
-  }, [proyectoId]);
+  }, [proyectoId, proyectoProp, user?.rol]);
 
   const horasRegistradasByFase = useMemo(() => {
     const map = new Map();

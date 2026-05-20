@@ -5,6 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import { getServicios } from "../../services/servicioService";
 import { getUsuarios } from "../../services/usuarioService";
 import { getProyectos, getMisProyectos, getHorasResumenProyecto } from "../../services/proyectoService";
+import { getNotasByProyecto } from "../../services/notaService";
 import { getLiderNombre, getServicioNombre, getTotalHorasResumen, isProyectoActivo, normalizeHorasResumen } from "../proyectos/projectUtils";
 
 /* ── StatCard ──────────────────────────────────── */
@@ -277,15 +278,87 @@ const Dashboard = () => {
   /* ── Lider / Empleado stats ────────────────── */
   const [misProyectos, setMisProyectos] = useState([]);
   const [loadingMios, setLoadingMios]   = useState(false);
+  const [miosError, setMiosError]       = useState("");
+  const [liderNotasByProyecto, setLiderNotasByProyecto] = useState({});
 
   useEffect(() => {
     if (rol !== "lider" && rol !== "empleado") return;
-    setLoadingMios(true);
-    getMisProyectos()
-      .then((r) => { if (r?.success) setMisProyectos(r.data || []); })
-      .catch(() => {})
-      .finally(() => setLoadingMios(false));
+    let mounted = true;
+
+    const fetchMios = async () => {
+      setLoadingMios(true);
+      setMiosError("");
+      setLiderNotasByProyecto({});
+
+      try {
+        const r = await getMisProyectos();
+        if (!mounted) return;
+
+        if (!r?.success) {
+          setMisProyectos([]);
+          setMiosError("No se pudieron cargar tus proyectos asignados.");
+          return;
+        }
+
+        const proyectosList = r.data || [];
+        setMisProyectos(proyectosList);
+
+        if (rol !== "lider" || proyectosList.length === 0) return;
+
+        const notasEntries = await Promise.all(
+          proyectosList.map(async (proyecto) => {
+            try {
+              const notas = await getNotasByProyecto(proyecto.id_proyecto);
+              return [proyecto.id_proyecto, Array.isArray(notas?.data) ? notas.data : []];
+            } catch {
+              return [proyecto.id_proyecto, []];
+            }
+          })
+        );
+
+        if (!mounted) return;
+        setLiderNotasByProyecto(Object.fromEntries(notasEntries));
+      } catch (err) {
+        if (mounted) {
+          setMisProyectos([]);
+          setMiosError(err?.response?.data?.message || "Error al conectar con el servidor.");
+        }
+      } finally {
+        if (mounted) setLoadingMios(false);
+      }
+    };
+
+    fetchMios();
+
+    return () => {
+      mounted = false;
+    };
   }, [rol]);
+
+  const liderMetrics = useMemo(() => {
+    const notas = Object.values(liderNotasByProyecto).reduce((acc, list) => acc + list.length, 0);
+
+    return {
+      notas,
+      finalizados: misProyectos.filter((p) => p.fecha_fin_real).length,
+    };
+  }, [misProyectos, liderNotasByProyecto]);
+
+  const liderNotasRecientes = useMemo(() => {
+    const proyectosById = new Map(misProyectos.map((p) => [String(p.id_proyecto), p]));
+
+    return Object.entries(liderNotasByProyecto)
+      .flatMap(([proyectoId, notas]) => {
+        const proyecto = proyectosById.get(String(proyectoId));
+        return (notas || []).map((nota) => ({
+          ...nota,
+          id_proyecto: proyectoId,
+          proyecto_nombre: proyecto?.nombre || "Sin proyecto",
+        }));
+      })
+      .sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0))
+      .slice(0, 5);
+  }, [misProyectos, liderNotasByProyecto]);
 
   /* ── OWNER ─────────────────────────────────── */
   if (rol === "propietario") {
@@ -420,21 +493,26 @@ const Dashboard = () => {
             <p className="text-muted small mb-0">Panel de líder de equipo</p>
           </div>
 
+          {miosError && (
+            <div className="alert alert-danger d-flex align-items-center small rounded-3 mb-3">
+              <i className="bi bi-exclamation-circle-fill me-2"></i>{miosError}
+            </div>
+          )}
+
           <div className="row g-3 mb-4 stagger">
             {[
               { icon: "bi-kanban-fill",    label: "Proyectos asignados", value: loadingMios ? "…" : misProyectos.length, color: "#4F46E5", bg: "rgba(79,70,229,.1)",  to: "/proyectos", delay: .05 },
-              { icon: "bi-people-fill",    label: "Mi equipo",           value: "—", color: "#10B981", bg: "rgba(16,185,129,.1)", to: "/usuarios",  delay: .10 },
-              { icon: "bi-clock-history",  label: "Horas esta semana",   value: "—", color: "#F59E0B", bg: "rgba(245,158,11,.1)", to: "/horas",     delay: .15 },
-              { icon: "bi-check2-circle",  label: "Tareas completadas",  value: "—", color: "#06B6D4", bg: "rgba(6,182,212,.1)",  delay: .20 },
+              { icon: "bi-journal-text",   label: "Notas registradas",   value: loadingMios ? "…" : liderMetrics.notas, color: "#F59E0B", bg: "rgba(245,158,11,.1)", to: "/notas", delay: .10 },
+              { icon: "bi-check2-circle",  label: "Proyectos finalizados", value: loadingMios ? "…" : liderMetrics.finalizados, color: "#10B981", bg: "rgba(16,185,129,.1)", delay: .15 },
             ].map((s, i) => (
-              <div className="col-6 col-md-3" key={i}>
+              <div className="col-12 col-md-4" key={i}>
                 <StatCard {...s} />
               </div>
             ))}
           </div>
 
           <div className="row g-3">
-            <div className="col-12 col-md-6">
+            <div className="col-12 col-lg-6">
               <div className="card border-0 rounded-4 overflow-hidden" style={{ boxShadow: "var(--shadow-md)" }}>
                 <div style={{ height: 3, background: "linear-gradient(90deg,#4F46E5,#06B6D4)" }}></div>
                 <div className="card-body p-4">
@@ -476,19 +554,56 @@ const Dashboard = () => {
                 </div>
               </div>
             </div>
-            <div className="col-12 col-md-6">
+            <div className="col-12 col-lg-6">
               <div className="card border-0 rounded-4 overflow-hidden" style={{ boxShadow: "var(--shadow-md)" }}>
-                <div style={{ height: 3, background: "linear-gradient(90deg,#10B981,#06B6D4)" }}></div>
+                <div style={{ height: 3, background: "linear-gradient(90deg,#F59E0B,#4F46E5)" }}></div>
                 <div className="card-body p-4">
-                  <h6 className="fw-bold mb-3"><i className="bi bi-clock me-2 text-success"></i>Reporte de Horas</h6>
-                  <div className="empty-state py-3">
-                    <i className="bi bi-clock" style={{ fontSize: "2rem" }}></i>
-                    <h6>Acceso rápido</h6>
-                    <p>Revisa las horas registradas por tu equipo.</p>
-                    <Link to="/horas" className="btn btn-sm btn-success px-4">
-                      <i className="bi bi-clock-history me-2"></i>Ver Horas
+                  <div className="d-flex align-items-center justify-content-between mb-3">
+                    <h6 className="fw-bold mb-0"><i className="bi bi-journal-text me-2 text-warning"></i>Mis Notas</h6>
+                    <Link to="/notas" className="btn btn-sm btn-light rounded-3" style={{ fontSize: 11 }}>
+                      Ver todas <i className="bi bi-arrow-right ms-1"></i>
                     </Link>
                   </div>
+                  {loadingMios ? (
+                    Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton rounded-3 mb-2" style={{ height: 42 }}></div>)
+                  ) : liderNotasRecientes.length === 0 ? (
+                    <div className="empty-state py-4">
+                      <i className="bi bi-journal-text" style={{ fontSize: "2rem" }}></i>
+                      <h6>Sin notas registradas</h6>
+                      <p>Las notas que registres en tus proyectos aparecerán aquí.</p>
+                    </div>
+                  ) : (
+                    <div className="table-responsive app-table-scroll">
+                      <table className="table table-modern mb-0">
+                        <thead>
+                          <tr>
+                            <th>Proyecto</th>
+                            <th>Descripción</th>
+                            <th>Fecha</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {liderNotasRecientes.map((nota) => (
+                            <tr key={nota.id_nota}>
+                              <td>
+                                <span className="badge badge-role badge-lider small">
+                                  {nota.proyecto_nombre}
+                                </span>
+                              </td>
+                              <td className="text-muted small" style={{ maxWidth: 230 }}>
+                                <span className="d-block text-truncate" title={nota.descripcion || ""}>
+                                  {nota.descripcion || "Sin descripción"}
+                                </span>
+                              </td>
+                              <td className="text-muted small">
+                                {nota.fecha ? String(nota.fecha).slice(0, 10) : "—"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
