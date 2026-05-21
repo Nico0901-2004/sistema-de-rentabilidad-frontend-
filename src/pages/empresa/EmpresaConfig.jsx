@@ -40,6 +40,14 @@ const EmpresaConfig = () => {
       setMensaje({ texto: "El nombre no puede estar vacío.", tipo: "danger" });
       return;
     }
+    if (nombre.trim().length < 3 || nombre.trim().length > 100) {
+      setMensaje({ texto: "El nombre debe tener entre 3 y 100 caracteres.", tipo: "danger" });
+      return;
+    }
+    if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/.test(nombre.trim())) {
+      setMensaje({ texto: "El nombre solo debe contener letras y espacios.", tipo: "danger" });
+      return;
+    }
     try {
       setLoading(true);
       setMensaje({ texto: "", tipo: "" });
@@ -99,6 +107,8 @@ const EmpresaConfig = () => {
                       value={nombre}
                       onChange={(e) => setNombre(e.target.value)}
                       placeholder="Nombre de tu empresa"
+                      minLength={3}
+                      maxLength={100}
                       disabled={loading}
                     />
                   </div>

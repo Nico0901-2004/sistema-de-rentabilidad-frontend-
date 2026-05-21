@@ -12,11 +12,6 @@ export const getMisProyectos = async () => {
   return response.data;
 };
 
-export const getProyectosDisponibles = async () => {
-  const response = await api.get("/proyectos/disponibles");
-  return response.data;
-};
-
 export const getProyectoById = async (id) => {
   const response = await api.get(`/proyectos/${id}`);
   return response.data;
@@ -40,8 +35,8 @@ export const desactivarProyecto = async (id) => {
 export const eliminarProyecto = desactivarProyecto;
 
 // src/services/proyectoService.js
-export const finalizarProyecto = async (id, data) => {
-  const response = await api.put(`/proyectos/${id}/finalizar`, data);
+export const finalizarProyecto = async (id) => {
+  const response = await api.put(`/proyectos/${id}/finalizar`);
   return response.data;
 };
 
@@ -49,9 +44,3 @@ export const getHorasResumenProyecto = async (id) => {
   const response = await api.get(`/proyectos/${id}/horas-resumen`);
   return response.data;
 };
-
-export const getEmpleadosProyecto = async (id) => {
-  const response = await api.get(`/proyectos/${id}/empleados`);
-  return response.data;
-};
-

@@ -54,15 +54,20 @@ const FasesForm = ({ faseId, proyectoId, onSaved, onCancel }) => {
       return;
     }
 
-    if (form.nombre.trim().length < 2) {
-      setError("El nombre debe tener al menos 2 caracteres.");
+    if (form.nombre.trim().length < 3 || form.nombre.trim().length > 100) {
+      setError("El nombre debe tener entre 3 y 100 caracteres.");
       return;
     }
 
-    // Criterio: Las horas estimadas deben ser mayores a cero
+    if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/.test(form.nombre.trim())) {
+      setError("El nombre solo debe contener letras y espacios.");
+      return;
+    }
+
+    // Criterio backend: Las horas estimadas deben ser >= 1.
     const horasNum = Number(form.horas_estimadas);
-    if (form.horas_estimadas === "" || isNaN(horasNum) || horasNum <= 0) {
-      setError("Las horas estimadas deben ser un número mayor a cero.");
+    if (form.horas_estimadas === "" || isNaN(horasNum) || horasNum < 1) {
+      setError("Las horas estimadas deben ser un número mayor o igual a 1.");
       return;
     }
 
@@ -128,6 +133,8 @@ const FasesForm = ({ faseId, proyectoId, onSaved, onCancel }) => {
               error={error && error.includes("nombre")}
               placeholder="Ej: Diseño de Interfaz"
               required
+              minLength={3}
+              maxLength={100}
             />
 
             <FormField
@@ -138,7 +145,7 @@ const FasesForm = ({ faseId, proyectoId, onSaved, onCancel }) => {
               value={form.horas_estimadas}
               onChange={handleChange}
               error={error && error.includes("horas")}
-              min="0.1"
+              min="1"
               step="0.1"
               placeholder="0.0"
               required

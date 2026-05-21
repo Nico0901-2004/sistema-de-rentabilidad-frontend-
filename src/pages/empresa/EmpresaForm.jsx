@@ -45,12 +45,15 @@ const EmpresaForm = ({ show, onClose, onSuccess, empresaId }) => {
     e.preventDefault();
     setError("");
     setSuccessMsg("");
-    if (!nombre.trim()) { setError("El nombre de la empresa es obligatorio."); return; }
+    const nombreLimpio = nombre.trim();
+    if (!nombreLimpio) { setError("El nombre de la empresa es obligatorio."); return; }
+    if (nombreLimpio.length < 3 || nombreLimpio.length > 100) { setError("El nombre debe tener entre 3 y 100 caracteres."); return; }
+    if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/.test(nombreLimpio)) { setError("El nombre solo debe contener letras y espacios."); return; }
     try {
       setSaving(true);
       const response = isEdit
-        ? await updateEmpresa(empresaId, { nombre: nombre.trim() })
-        : await createEmpresa({ nombre: nombre.trim() });
+        ? await updateEmpresa(empresaId, { nombre: nombreLimpio })
+        : await createEmpresa({ nombre: nombreLimpio });
       if (!response.success) { setError("No se pudo guardar la empresa."); return; }
       setSuccessMsg(isEdit ? "Empresa actualizada correctamente." : "Empresa creada correctamente.");
       if (onSuccess) onSuccess();
@@ -116,6 +119,8 @@ const EmpresaForm = ({ show, onClose, onSuccess, empresaId }) => {
                     value={nombre}
                     onChange={(e) => setNombre(e.target.value)}
                     disabled={saving}
+                    minLength={3}
+                    maxLength={100}
                     required
                   />
                 </div>

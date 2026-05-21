@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getOwnerContact, login } from "../../services/authService";
+import { login } from "../../services/authService";
 import { useAuth } from "../../context/AuthContext";
 
 /* ── Animated background blobs ──────────────────────── */
@@ -53,97 +53,6 @@ const AnimatedBg = () => (
     `}</style>
   </div>
 );
-
-/* ── Modal: Olvidaste tu contraseña ─────────────────── */
-const ForgotPasswordModal = ({ onClose }) => {
-  const [email, setEmail]     = useState("");
-  const [loading, setLoading] = useState(false);
-  const [result, setResult]   = useState(null);
-  const [error, setError]     = useState("");
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError(""); setResult(null); setLoading(true);
-    try {
-      const res = await getOwnerContact(email);
-      if (res?.success) setResult(res.data);
-      else setError(res?.message || "No se pudo obtener el contacto.");
-    } catch (err) {
-      setError(err.response?.data?.message || "No se encontró ninguna cuenta con ese correo.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div
-      style={{ position: "fixed", inset: 0, background: "rgba(15,12,41,.7)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000 }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <style>{`
-        @keyframes scaleIn {
-          from { opacity: 0; transform: scale(.92) translateY(12px); }
-          to   { opacity: 1; transform: scale(1)  translateY(0); }
-        }
-      `}</style>
-      <div style={{ background: "#fff", borderRadius: 20, padding: "2rem", width: "100%", maxWidth: 440, margin: "1rem", boxShadow: "0 20px 60px rgba(0,0,0,.35)", animation: "scaleIn .25s cubic-bezier(.34,1.56,.64,1)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.25rem" }}>
-          <div>
-            <h5 style={{ fontWeight: 800, margin: 0, color: "#1e293b" }}>¿Olvidaste tu contraseña?</h5>
-            <p style={{ margin: 0, color: "#64748b", fontSize: 13, marginTop: 4 }}>Ingresa tu email y te diremos a quién contactar.</p>
-          </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#94a3b8", padding: 4, lineHeight: 1 }}>✕</button>
-        </div>
-
-        {!result ? (
-          <form onSubmit={handleSubmit}>
-            {error && (
-              <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "0.6rem 1rem", marginBottom: "1rem", color: "#dc2626", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
-                <i className="bi bi-exclamation-circle-fill"></i>{error}
-              </div>
-            )}
-            <div style={{ marginBottom: "1rem" }}>
-              <label style={{ display: "block", fontWeight: 600, fontSize: 13, color: "#374151", marginBottom: 6 }}>Tu correo electrónico</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="usuario@empresa.com"
-                required
-                style={{ width: "100%", padding: "0.65rem 0.85rem", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", transition: "border .2s", boxSizing: "border-box" }}
-                onFocus={(e) => e.target.style.borderColor = "#4f46e5"}
-                onBlur={(e)  => e.target.style.borderColor = "#e2e8f0"}
-              />
-            </div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button type="button" onClick={onClose} style={{ flex: 1, padding: "0.6rem", borderRadius: 10, border: "1.5px solid #e2e8f0", background: "#f8fafc", fontWeight: 600, cursor: "pointer", fontSize: 14, color: "#374151" }}>
-                Cancelar
-              </button>
-              <button type="submit" disabled={loading} style={{ flex: 2, padding: "0.6rem", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#4f46e5,#3730a3)", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                {loading ? <><span className="spinner-border spinner-border-sm" style={{ width: 16, height: 16 }}></span>Buscando...</> : "Consultar"}
-              </button>
-            </div>
-          </form>
-        ) : (
-          <div style={{ textAlign: "center", padding: "0.5rem 0" }}>
-            <div style={{ width: 56, height: 56, borderRadius: "50%", background: "linear-gradient(135deg,#10b981,#059669)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1rem", fontSize: 24, color: "#fff" }}>
-              <i className="bi bi-person-check-fill"></i>
-            </div>
-            <h6 style={{ fontWeight: 700, color: "#1e293b", marginBottom: 4 }}>¡Propietario encontrado!</h6>
-            <p style={{ color: "#64748b", fontSize: 13, marginBottom: "1rem" }}>Contacta a <strong>{result.nombre}</strong> para recuperar tu acceso:</p>
-            <div style={{ background: "linear-gradient(135deg,rgba(79,70,229,.08),rgba(6,182,212,.06))", border: "1px solid rgba(79,70,229,.2)", borderRadius: 12, padding: "0.85rem 1.25rem", display: "flex", alignItems: "center", gap: 10, justifyContent: "center" }}>
-              <i className="bi bi-envelope-fill" style={{ color: "#4f46e5", fontSize: 18 }}></i>
-              <a href={`mailto:${result.email}`} style={{ color: "#4f46e5", fontWeight: 700, fontSize: 15, textDecoration: "none" }}>{result.email}</a>
-            </div>
-            <button onClick={onClose} style={{ marginTop: "1.25rem", width: "100%", padding: "0.6rem", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#4f46e5,#3730a3)", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 14 }}>
-              Entendido
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
 
 /* ── Login ────────────────────────────────────────── */
 const LOGIN_LOCKOUT_KEY = "login_attempts_lockout";
@@ -234,7 +143,6 @@ const Login = () => {
   const [error, setError]           = useState("");
   const [loading, setLoading]       = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [showForgot, setShowForgot] = useState(false);
   const [lockedUntil, setLockedUntil] = useState(0);
   const [now, setNow] = useState(Date.now());
   const navigate = useNavigate();
@@ -341,8 +249,6 @@ const Login = () => {
     <>
       <AnimatedBg />
 
-      {showForgot && <ForgotPasswordModal onClose={() => setShowForgot(false)} />}
-
       <div style={{ position: "relative", zIndex: 1, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
         <div style={{
           width: "100%", maxWidth: 420,
@@ -411,14 +317,6 @@ const Login = () => {
                     <i className={`bi ${showPassword ? "bi-eye-slash" : "bi-eye"}`}></i>
                   </button>
                 </div>
-              </div>
-
-              {/* Forgot password link */}
-              <div style={{ textAlign: "right", marginBottom: "1.5rem" }}>
-                <button type="button" onClick={() => setShowForgot(true)}
-                  style={{ background: "none", border: "none", cursor: "pointer", color: "#4f46e5", fontSize: 12, fontWeight: 600, padding: 0, textDecoration: "underline", textDecorationStyle: "dotted" }}>
-                  ¿Olvidaste tu contraseña? Contacta con tu propietario
-                </button>
               </div>
 
               <button type="submit" disabled={loading || isLocked} style={{

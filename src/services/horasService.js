@@ -17,11 +17,6 @@ export const updateHora = async (id, data) => {
   return response.data;
 };
 
-export const deleteHora = async (id) => {
-  const response = await api.delete(`/horas/${id}`);
-  return response.data;
-};
-
 export const marcarEntrada = async () => {
   const response = await api.post("/marcajes/entrada");
   return response.data;

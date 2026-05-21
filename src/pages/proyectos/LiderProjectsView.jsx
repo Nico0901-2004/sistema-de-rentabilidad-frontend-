@@ -97,9 +97,7 @@ const LiderProjectsView = () => {
 
     try {
       setLoading(true);
-      const res = await finalizarProyecto(proyectoAFinalizar.id_proyecto, { 
-        fecha_fin_real: getTodayDateValue()
-      });
+      const res = await finalizarProyecto(proyectoAFinalizar.id_proyecto);
 
       if (res.success) {
         notifySuccess("Proyecto finalizado correctamente. El registro de horas ha sido bloqueado.");

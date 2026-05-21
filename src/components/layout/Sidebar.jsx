@@ -54,13 +54,13 @@ const Sidebar = () => {
   const [empresaNombre, setEmpresaNombre] = useState("");
 
   useEffect(() => {
-    if (!user?.id_empresa) return;
+    if (user?.rol !== "propietario" || !user?.id_empresa) return;
     getEmpresaById(user.id_empresa)
       .then((r) => {
         if (r?.success) setEmpresaNombre(r.data.nombre);
       })
       .catch(() => {});
-  }, [user?.id_empresa]);
+  }, [user?.id_empresa, user?.rol]);
 
   const navItems = getNavItems(rol);
   const active = (path) => location.pathname === path;

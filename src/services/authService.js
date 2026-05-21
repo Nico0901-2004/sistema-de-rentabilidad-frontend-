@@ -14,8 +14,3 @@ export const logoutRequest = async () => {
   const response = await api.post("/auth/logout");
   return response.data;
 };
-
-export const getOwnerContact = async (email) => {
-  const response = await api.post("/auth/get-owner-contact", { email });
-  return response.data;
-};

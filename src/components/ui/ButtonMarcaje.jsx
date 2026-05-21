@@ -185,12 +185,12 @@ const ButtonMarcaje = () => {
     for (const fila of filasHoras) {
       if (!fila.id_proyecto) return setErrorModal("Por favor, selecciona un proyecto en todas las filas.");
       if (!fila.id_fase) return setErrorModal("Por favor, selecciona una fase asociada para cada proyecto.");
-      if (Number(fila.horas) <= 0) return setErrorModal("El número de horas imputadas debe ser mayor a 0.");
+      if (Number(fila.horas) < 0.5 || Number(fila.horas) > 12) return setErrorModal("Cada registro debe tener entre 0.5 y 12 horas.");
       totalHorasDia += Number(fila.horas);
     }
 
-    if (totalHorasDia > 24) {
-      return setErrorModal("El total de horas acumuladas para el día de hoy no puede superar las 24 horas.");
+    if (totalHorasDia > 12) {
+      return setErrorModal("El total de horas acumuladas para el día de hoy no puede superar las 12 horas.");
     }
 
     try {
@@ -200,7 +200,6 @@ const ButtonMarcaje = () => {
         const payloadHora = {
           id_proyecto: Number(fila.id_proyecto),
           id_fase: Number(fila.id_fase),
-          fecha: getTodayDate(),
           horas: Number(fila.horas),
           descripcion: fila.descripcion.trim() || null
         };
@@ -319,7 +318,7 @@ const ButtonMarcaje = () => {
                         <input 
                           type="number" 
                           className="form-control form-control-sm" 
-                          min="0.5" max="24" step="0.5" 
+                          min="0.5" max="12" step="0.5" 
                           value={fila.horas} 
                           onChange={(e) => handleFilaChange(index, "horas", e.target.value)} 
                           required 
@@ -335,7 +334,7 @@ const ButtonMarcaje = () => {
                           placeholder="Ej. Desarrollo de componentes de interfaz..." 
                           value={fila.descripcion} 
                           onChange={(e) => handleFilaChange(index, "descripcion", e.target.value)} 
-                          maxLength={150}
+                          maxLength={100}
                         />
                       </div>
                     </div>

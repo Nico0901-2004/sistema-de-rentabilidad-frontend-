@@ -61,11 +61,25 @@ const NotasForm = ({ nota, proyectoId, proyectos = [], showProjectSelect = false
       return;
     }
 
+    if (descripcion.length < 3) {
+      const msg = "La descripción debe tener entre 3 y 1000 caracteres.";
+      setError(msg);
+      notifyError(msg);
+      return;
+    }
+
     // Criterio: El sistema debe validar el límite máximo de caracteres
     if (descripcion.length > MAX_CARACTERES) {
       const msg = `La descripción no puede superar los ${MAX_CARACTERES} caracteres.`;
       setError(msg);
       notifyError(msg); // Feedback visual inmediato
+      return;
+    }
+
+    if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ0-9\s.,()-]+$/.test(descripcion)) {
+      const msg = "La descripción contiene caracteres inválidos.";
+      setError(msg);
+      notifyError(msg);
       return;
     }
 

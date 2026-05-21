@@ -121,8 +121,7 @@ export default function AppRouter() {
       {/* ══════════ GESTIÓN DE HORAS MODULADO COMPARTIDO (HU 30) ══════════ */}
       <Route path="/mis-horas" element={
         <RequireAuth>
-          {/* CORRECCIÓN: Permitimos que el líder acceda a registrar/ver su desglose de horas igual que el empleado */}
-          <RequireRole roles={["empleado", "lider"]}><MisHorasList /></RequireRole>
+          <RequireRole roles={["empleado"]}><MisHorasList /></RequireRole>
         </RequireAuth>
       } />
 
@@ -142,7 +141,7 @@ export default function AppRouter() {
       } />
       <Route path="/proyectos/:proyectoId/fases" element={
         <RequireAuth>
-          <RequireRole roles={["propietario", "lider"]}><FasesLists /></RequireRole>
+          <RequireRole roles={["propietario", "lider", "empleado"]}><FasesLists /></RequireRole>
         </RequireAuth>
       } />
       <Route path="/proyectos/:proyectoId/notas" element={

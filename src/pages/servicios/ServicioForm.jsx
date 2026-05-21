@@ -36,11 +36,36 @@ const ServicioForm = ({ servicioId, onSaved, onCancel }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+
+    const nombre = form.nombre.trim();
+    const descripcion = form.descripcion.trim();
+
+    if (nombre.length < 3 || nombre.length > 100) {
+      setError("El nombre debe tener entre 3 y 100 caracteres.");
+      return;
+    }
+    if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/.test(nombre)) {
+      setError("El nombre solo debe contener letras y espacios.");
+      return;
+    }
+    if (descripcion && (descripcion.length < 3 || descripcion.length > 500)) {
+      setError("La descripción debe tener entre 3 y 500 caracteres.");
+      return;
+    }
+    if (descripcion && !/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/.test(descripcion)) {
+      setError("La descripción solo debe contener letras y espacios.");
+      return;
+    }
+
     setLoading(true);
+    const payload = {
+      nombre,
+      ...(descripcion ? { descripcion } : {}),
+    };
     try {
       const response = servicioId
-        ? await updateServicio(servicioId, form)
-        : await createServicio(form);
+        ? await updateServicio(servicioId, payload)
+        : await createServicio(payload);
 
       if (response?.success) {
         notifySuccess(servicioId ? "Servicio actualizado correctamente" : "Servicio creado correctamente");
@@ -88,6 +113,7 @@ const ServicioForm = ({ servicioId, onSaved, onCancel }) => {
             inputClassName="bg-light border-0"
             required
             minLength={3}
+            maxLength={100}
           />
           <TextAreaField
             className="mb-4"
@@ -97,6 +123,7 @@ const ServicioForm = ({ servicioId, onSaved, onCancel }) => {
             onChange={handleChange}
             textareaClassName="bg-light border-0"
             rows={3}
+            maxLength={500}
           />
           <FormActions
             showCancel={false}

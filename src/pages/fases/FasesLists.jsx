@@ -48,7 +48,7 @@ const FasesLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null,
     try {
       setLoading(true);
       setError("");
-      const response = await getFasesByProyecto(proyectoId, orderBy);
+      const response = await getFasesByProyecto(proyectoId);
       if (response?.success) setFases(normalizeFases(response.data));
       else setError(response?.message || "No se pudieron cargar las fases.");
     } catch (err) {
@@ -56,7 +56,7 @@ const FasesLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null,
     } finally {
       setLoading(false);
     }
-  }, [proyectoId, orderBy]);
+  }, [proyectoId]);
 
   useEffect(() => {
     fetchFases();
@@ -72,7 +72,7 @@ const FasesLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null,
       setProyecto(proyectoProp);
       return;
     }
-    if (!proyectoId || user?.rol === "lider") return;
+    if (!proyectoId || user?.rol !== "propietario") return;
     getProyectoById(proyectoId)
       .then((res) => {
         if (res?.success) setProyecto(res.data);
@@ -130,8 +130,13 @@ const FasesLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null,
 
   const filtered = useMemo(() => {
     const term = search.toLowerCase();
-    return fasesConHoras.filter((fase) => fase.nombre.toLowerCase().includes(term));
-  }, [fasesConHoras, search]);
+    return fasesConHoras
+      .filter((fase) => fase.nombre.toLowerCase().includes(term))
+      .sort((a, b) => {
+        if (orderBy === "nombre") return String(a.nombre).localeCompare(String(b.nombre));
+        return Number(b.id_fase || 0) - Number(a.id_fase || 0);
+      });
+  }, [fasesConHoras, search, orderBy]);
 
   const totalHoras = fasesConHoras.reduce((acc, fase) => acc + Number(fase.horas_estimadas || 0), 0);
 

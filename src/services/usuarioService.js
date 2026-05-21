@@ -34,9 +34,3 @@ export const createHistorialSueldo = async (data) => {
   const response = await api.post("/historiales", data);
   return response.data;
 };
-
-export const deleteUsuario = async (id) => {
-  const response = await api.delete(`/usuarios/${id}`);
-  return response.data;
-};
-

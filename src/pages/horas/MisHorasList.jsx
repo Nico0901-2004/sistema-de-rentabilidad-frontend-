@@ -3,8 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import Layout from "../../components/layout/Layout";
 import DataTable from "../../components/ui/DataTable";
 import HorasForm from "./HorasForm";
-import { getMisHoras, deleteHora } from "../../services/horasService";
-import { notifyInfo, notifySuccess, notifyError } from "../../utils/notify";
+import { getMisHoras } from "../../services/horasService";
+import { notifyInfo, notifyError } from "../../utils/notify";
 
 const getHorasData = (response) => {
   if (Array.isArray(response)) return response;
@@ -134,24 +134,6 @@ const MisHorasList = () => {
     }
     setSelectedHoraId(idRegistro);
     setShowForm(true);
-  };
-
-  // Manejador para consumir el endpoint de eliminación directa (HU 30)
-  const handleDeleteClick = async (idRegistro) => {
-    if (!idRegistro) {
-      notifyError("No se pudo identificar el ID del registro para eliminar.");
-      return;
-    }
-    
-    if (window.confirm("¿Estás completamente seguro de que deseas eliminar este registro de horas?")) {
-      try {
-        await deleteHora(idRegistro);
-        notifySuccess("Registro de horas eliminado correctamente.");
-        await fetchHoras();
-      } catch (err) {
-        notifyError(err?.response?.data?.message || "Ocurrió un error al intentar eliminar el registro.");
-      }
-    }
   };
 
   const columns = [
@@ -290,9 +272,6 @@ const MisHorasList = () => {
             <div className="d-flex gap-2 justify-content-end">
               <button className="btn btn-sm btn-success shadow-sm" type="button" title="Editar registro" onClick={() => handleEditClick(registro.id_registro)}>
                 <i className="bi bi-pencil-square"></i>
-              </button>
-              <button className="btn btn-sm btn-danger shadow-sm" type="button" title="Eliminar registro" onClick={() => handleDeleteClick(registro.id_registro)}>
-                <i className="bi bi-trash-fill"></i>
               </button>
             </div>
           )}

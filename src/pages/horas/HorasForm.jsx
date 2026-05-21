@@ -113,8 +113,8 @@ const HorasForm = ({ idRegistroEdicion, proyectoPreseleccionado, fasesPreselecci
       setError("Selecciona una fase asociada al proyecto.");
       return;
     }
-    if (Number(form.horas) <= 0 || Number(form.horas) > 24) {
-      setError("El número de horas diarias debe ser mayor a 0 y no puede exceder las 24 horas.");
+    if (Number(form.horas) < 0.5 || Number(form.horas) > 12) {
+      setError("Las horas deben estar entre 0.5 y 12.");
       return;
     }
 
@@ -123,7 +123,6 @@ const HorasForm = ({ idRegistroEdicion, proyectoPreseleccionado, fasesPreselecci
       const dataPayload = {
         id_proyecto: Number(form.id_proyecto),
         id_fase: Number(form.id_fase),
-        fecha: form.fecha,
         horas: Number(form.horas),
         descripcion: form.descripcion || null,
       };
@@ -229,8 +228,10 @@ const HorasForm = ({ idRegistroEdicion, proyectoPreseleccionado, fasesPreselecci
               className="form-control"
               required
               max={today()}
-              disabled={isEdicion} // CORRECCIÓN: Sólo deshabilitado en edición para proteger los rangos diarios del backend
+              disabled
+              readOnly
             />
+            <div className="form-text text-muted small">El backend registra la fecha automáticamente.</div>
           </div>
 
           {/* Campo: Cantidad de Horas */}
@@ -243,12 +244,12 @@ const HorasForm = ({ idRegistroEdicion, proyectoPreseleccionado, fasesPreselecci
               onChange={handleChange}
               className="form-control"
               min="0.5"
-              max="24"
+              max="12"
               step="0.5"
               required
               placeholder="Ej. 7.5"
             />
-            <div className="form-text text-muted small">Registra el tiempo total (ej. 8 horas de jornada o sobretiempos).</div>
+            <div className="form-text text-muted small">El backend acepta entre 0.5 y 12 horas por día.</div>
           </div>
 
           {/* Campo: Descripción */}
@@ -261,6 +262,7 @@ const HorasForm = ({ idRegistroEdicion, proyectoPreseleccionado, fasesPreselecci
               className="form-control"
               rows={3}
               placeholder="Describe brevemente las tareas realizadas..."
+              maxLength={100}
             />
           </div>
 

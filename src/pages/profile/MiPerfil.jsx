@@ -37,12 +37,36 @@ const MiPerfil = () => {
     setSuccess("");
     setSaving(true);
     try {
+      const nombre = form.nombre.trim();
+      const email = form.email.trim();
+
+      if (nombre.length < 3 || nombre.length > 100) {
+        setError("El nombre debe tener entre 3 y 100 caracteres.");
+        setSaving(false);
+        return;
+      }
+      if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/.test(nombre)) {
+        setError("El nombre solo debe contener letras y espacios.");
+        setSaving(false);
+        return;
+      }
+      if (!isEmailRestricted && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        setError("Email inválido.");
+        setSaving(false);
+        return;
+      }
+      if (form.password && !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,100}$/.test(form.password)) {
+        setError("La contraseña debe tener entre 8 y 100 caracteres, mayúscula, minúscula, número y carácter especial.");
+        setSaving(false);
+        return;
+      }
+
       // Estructuramos el payload básico de la HU-02
-      const payload = { nombre: form.nombre.trim() };
+      const payload = { nombre };
       
       // Enviamos el correo únicamente si el usuario actual cuenta con los privilegios requeridos
       if (!isEmailRestricted) {
-        payload.email = form.email.trim();
+        payload.email = email;
       }
 
       // Si se ingresó una nueva contraseña opcional, la añadimos
@@ -56,8 +80,8 @@ const MiPerfil = () => {
         
         // Sincronizamos el estado global del AuthContext con los nuevos datos locales
         updateUser({ 
-          nombre: form.nombre.trim(), 
-          ...(!isEmailRestricted ? { email: form.email.trim() } : {}) 
+          nombre, 
+          ...(!isEmailRestricted ? { email } : {}) 
         });
         
         setEditing(false);
@@ -176,12 +200,13 @@ const MiPerfil = () => {
                         <div className="input-group">
                           <input
                             type={showPass ? "text" : "password"}
-                            name="password"
-                            value={form.password}
-                            onChange={handleChange}
-                            className="form-control"
-                            placeholder="Mínimo 6 caracteres"
-                            minLength={form.password ? 6 : undefined}
+                          name="password"
+                          value={form.password}
+                          onChange={handleChange}
+                          className="form-control"
+                            placeholder="Mínimo 8 caracteres, mayúscula, minúscula, número y especial"
+                            minLength={form.password ? 8 : undefined}
+                            maxLength={100}
                           />
                           <button className="btn btn-outline-secondary" type="button"
                             onClick={() => setShowPass(!showPass)}>

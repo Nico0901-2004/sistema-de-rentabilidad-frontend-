@@ -1,9 +1,7 @@
 import api from "./api";
 
-export const getFasesByProyecto = async (proyectoId, orderBy = "fecha") => {
-  const response = await api.get(`/proyectos/${proyectoId}/fases`, {
-    params: { orderBy },
-  });
+export const getFasesByProyecto = async (proyectoId) => {
+  const response = await api.get(`/proyectos/${proyectoId}/fases`);
   return response.data;
 };
 

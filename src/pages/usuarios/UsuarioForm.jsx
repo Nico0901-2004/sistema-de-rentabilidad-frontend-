@@ -150,12 +150,13 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
         if (!form.tipo_pago) return "El tipo de pago es obligatorio.";
         if (!["mensual", "por_hora"].includes(form.tipo_pago)) return "Tipo de pago inválido.";
         if (isBlank(form.monto)) return "El monto es obligatorio para empleados.";
-        if (Number.isNaN(monto) || monto < 0.5) return "El monto debe ser numérico y mayor a 0.5.";
+        const montoMin = isEdit ? 0.5 : 0.01;
+        if (Number.isNaN(monto) || monto < montoMin || monto > 999999.99) return `El monto debe ser numérico y estar entre ${montoMin} y 999999.99.`;
         if (form.tipo_pago === "mensual" && isBlank(form.horas_mensuales)) {
           return "Las horas mensuales son obligatorias para sueldo mensual.";
         }
-        if (form.tipo_pago === "mensual" && (!Number.isInteger(horas) || horas <= 0)) {
-          return "Las horas mensuales deben ser un número entero mayor a 0.";
+        if (form.tipo_pago === "mensual" && (Number.isNaN(horas) || horas < 1 || horas > 320)) {
+          return "Las horas mensuales deben estar entre 1 y 320.";
         }
       }
     }
@@ -163,19 +164,19 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
     return "";
   };
 
-  const buildUsuarioPayload = () => {
+  const buildUsuarioPayload = ({ includeRol = false } = {}) => {
     const payload = {
       nombre: form.nombre,
       email: form.email,
-      rol: form.rol,
     };
+    if (includeRol) payload.rol = form.rol;
     if (form.password) payload.password = form.password;
     return cleanPayload(payload);
   };
 
   const buildCreatePayload = () => {
     const payload = {
-      ...buildUsuarioPayload(),
+      ...buildUsuarioPayload({ includeRol: true }),
       password: form.password,
     };
 
@@ -344,7 +345,8 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
                         onChange={handleChange}
                         className="form-control form-control-sm"
                         placeholder="0.00"
-                        min="0.5"
+                        min={isEdit ? "0.5" : "0.01"}
+                        max="999999.99"
                         step="0.01"
                         disabled={loadingDetalle}
                       />
@@ -373,6 +375,7 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
                           className="form-control form-control-sm"
                           placeholder="160"
                           min="1"
+                          max="320"
                           step="1"
                           disabled={loadingDetalle}
                         />

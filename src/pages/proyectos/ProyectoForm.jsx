@@ -81,7 +81,13 @@ const ProyectoForm = ({ proyectoId, onSaved, onCancel }) => {
     e.preventDefault();
     setError("");
 
-    if (form.nombre.trim().length < 3) return setError("El nombre debe tener al menos 3 caracteres.");
+    const nombre = form.nombre.trim();
+    const descripcion = form.descripcion.trim();
+
+    if (nombre.length < 3 || nombre.length > 100) return setError("El nombre debe tener entre 3 y 100 caracteres.");
+    if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/.test(nombre)) return setError("El nombre solo debe contener letras y espacios.");
+    if (descripcion && (descripcion.length < 3 || descripcion.length > 500)) return setError("La descripción debe tener entre 3 y 500 caracteres.");
+    if (descripcion && !/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/.test(descripcion)) return setError("La descripción solo debe contener letras y espacios.");
     if (!form.id_servicio) return setError("Selecciona un servicio.");
     if (!form.id_lider) return setError("Selecciona un líder responsable.");
     if (!form.presupuesto || Number(form.presupuesto) < 1) return setError("El presupuesto debe ser mayor o igual a 1.");
@@ -95,14 +101,14 @@ const ProyectoForm = ({ proyectoId, onSaved, onCancel }) => {
 
     setLoading(true);
     const payload = {
-      nombre: form.nombre.trim(),
-      descripcion: form.descripcion.trim() || undefined,
+      nombre,
+      ...(descripcion ? { descripcion } : {}),
       id_servicio: Number(form.id_servicio),
       id_lider: Number(form.id_lider),
       presupuesto: Number(form.presupuesto),
       fecha_inicio: form.fecha_inicio,
       fecha_fin_estimada: form.fecha_fin_estimada,
-      empleados: form.empleados_ids,
+      empleados: form.empleados_ids.map(Number),
     };
 
     try {
