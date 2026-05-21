@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import Layout from "../../components/layout/Layout";
 import { useAuth } from "../../context/AuthContext";
 import { getEmpresaById } from "../../services/empresaService";
-import { updateUsuario } from "../../services/usuarioService";
+import { updateUsuario } from "../../services/usuarioService"; // Endpoint compatible con PUT /usuario/perfil
 
 const ROL_CONFIG = {
   admin:       { label: "Administrador", color: "#DC2626", bg: "rgba(239,68,68,.1)",   icon: "bi-shield-fill" },
@@ -21,7 +21,8 @@ const MiPerfil = () => {
   const [error, setError]     = useState("");
   const [success, setSuccess] = useState("");
 
-  const isAdmin = user?.rol === "admin";
+  // CRITERIO DE ACEPTACIÓN HU-02: Empleado y líder no pueden modificar su correo, propietario y admin sí.
+  const isEmailRestricted = user?.rol === "empleado" || user?.rol === "lider";
 
   useEffect(() => {
     if (!user?.id_empresa) return;
@@ -42,20 +43,38 @@ const MiPerfil = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
     setSaving(true);
     try {
-      const payload = { nombre: form.nombre, email: form.email };
-      if (form.password) payload.password = form.password;
+      // Estructuramos el payload básico de la HU-02
+      const payload = { nombre: form.nombre.trim() };
+      
+      // Enviamos el correo únicamente si el usuario actual cuenta con los privilegios requeridos
+      if (!isEmailRestricted) {
+        payload.email = form.email.trim();
+      }
+
+      // Si se ingresó una nueva contraseña opcional, la añadimos
+      if (form.password) {
+        payload.password = form.password;
+      }
+
       const res = await updateUsuario(user.id_usuario, payload);
       if (res?.success) {
         setSuccess("Perfil actualizado correctamente.");
-        updateUser({ nombre: form.nombre, email: form.email });
+        
+        // Sincronizamos el estado global del AuthContext con los nuevos datos locales
+        updateUser({ 
+          nombre: form.nombre.trim(), 
+          ...(!isEmailRestricted ? { email: form.email.trim() } : {}) 
+        });
+        
         setEditing(false);
       } else {
-        setError(res?.message || "Error al actualizar.");
+        setError(res?.message || "Error al actualizar la información.");
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Error al actualizar el perfil.");
+      setError(err.response?.data?.message || "Error al intentar actualizar el perfil.");
     } finally {
       setSaving(false);
     }
@@ -75,7 +94,7 @@ const MiPerfil = () => {
         </div>
 
         {success && (
-          <div className="alert alert-success d-flex align-items-center small rounded-3 mb-3">
+          <div className="alert alert-success d-flex align-items-center small rounded-3 mb-3 animate-fadeIn">
             <i className="bi bi-check-circle-fill me-2"></i>{success}
           </div>
         )}
@@ -108,9 +127,10 @@ const MiPerfil = () => {
                   <span className="fw-semibold small" style={{ color: rc.color }}>{rc.label}</span>
                 </div>
 
-                {isAdmin && !editing && (
+                {/* Habilitado para todos los perfiles según HU-02 */}
+                {!editing && (
                   <div className="mt-3">
-                    <button className="btn btn-primary btn-sm w-100" onClick={startEdit}>
+                    <button className="btn btn-primary btn-sm w-100 fw-semibold shadow-sm" onClick={startEdit}>
                       <i className="bi bi-pencil-fill me-2"></i>Editar perfil
                     </button>
                   </div>
@@ -121,12 +141,12 @@ const MiPerfil = () => {
 
           {/* Detalles / Formulario */}
           <div className="col-12 col-md-8">
-            {editing && isAdmin ? (
+            {editing ? (
               <div className="card border-0 rounded-4 overflow-hidden" style={{ boxShadow: "var(--shadow-md)" }}>
                 <div style={{ height: 4, background: "linear-gradient(90deg,var(--primary),var(--accent))" }}></div>
                 <div className="card-body p-4">
                   <h6 className="fw-bold text-muted text-uppercase small mb-4" style={{ letterSpacing: ".08em" }}>
-                    Editar datos
+                    Editar datos personales
                   </h6>
                   {error && (
                     <div className="alert alert-danger d-flex align-items-center py-2 small rounded-3 mb-3">
@@ -136,18 +156,31 @@ const MiPerfil = () => {
                   <form onSubmit={handleSave}>
                     <div className="row g-3">
                       <div className="col-12 col-sm-6">
-                        <label className="form-label fw-semibold small">Nombre completo</label>
+                        <label className="form-label fw-semibold small">Nombre completo *</label>
                         <input type="text" name="nombre" value={form.nombre} onChange={handleChange}
                           className="form-control" required />
                       </div>
                       <div className="col-12 col-sm-6">
                         <label className="form-label fw-semibold small">Correo electrónico</label>
-                        <input type="email" name="email" value={form.email} onChange={handleChange}
-                          className="form-control" required />
+                        <input 
+                          type="email" 
+                          name="email" 
+                          value={form.email} 
+                          onChange={handleChange}
+                          className="form-control" 
+                          required 
+                          disabled={isEmailRestricted} // Deshabilitado condicionalmente por rol (HU-02)
+                        />
+                        {isEmailRestricted && (
+                          <div className="form-text text-muted small italic mt-1">
+                            <i className="bi bi-info-circle me-1"></i>
+                            Las cuentas de equipo técnico no tienen permitido modificar su correo corporativo.
+                          </div>
+                        )}
                       </div>
                       <div className="col-12">
                         <label className="form-label fw-semibold small">
-                          Nueva contraseña <span className="text-muted fw-normal">(vacío = sin cambios)</span>
+                          Nueva contraseña <span className="text-muted fw-normal">(dejar vacío si no deseas cambiarla)</span>
                         </label>
                         <div className="input-group">
                           <input
@@ -156,8 +189,8 @@ const MiPerfil = () => {
                             value={form.password}
                             onChange={handleChange}
                             className="form-control"
-                            placeholder="Nueva contraseña (opcional)"
-                            minLength={form.password ? 8 : undefined}
+                            placeholder="Mínimo 6 caracteres"
+                            minLength={form.password ? 6 : undefined}
                           />
                           <button className="btn btn-outline-secondary" type="button"
                             onClick={() => setShowPass(!showPass)}>
@@ -187,10 +220,8 @@ const MiPerfil = () => {
                   </h6>
                   <div className="row g-3">
                     {[
-                      { label: "Nombre completo",    value: user?.nombre,          icon: "bi-person" },
-                      { label: "Correo electrónico", value: user?.email,           icon: "bi-envelope" },
-                      { label: "Rol en el sistema",  value: rc.label,              icon: rc.icon },
-                      { label: "ID de usuario",      value: `#${user?.id_usuario}`, icon: "bi-hash" },
+                      { label: "Nombre completo",    value: user?.nombre,           icon: "bi-person" },
+                      { label: "Correo electrónico", value: user?.email,            icon: "bi-envelope" },
                     ].map((f, i) => (
                       <div className="col-12 col-sm-6" key={i}>
                         <label className="form-label text-muted small fw-semibold d-flex align-items-center gap-1">
@@ -204,31 +235,7 @@ const MiPerfil = () => {
                         </div>
                       </div>
                     ))}
-                    {empresa && (
-                      <div className="col-12">
-                        <label className="form-label text-muted small fw-semibold d-flex align-items-center gap-1">
-                          <i className="bi bi-building"></i> Empresa
-                        </label>
-                        <div
-                          className="rounded-3 px-3 py-2 d-flex align-items-center gap-2"
-                          style={{ background: "rgba(79,70,229,.04)", border: "1px solid rgba(79,70,229,.08)" }}
-                        >
-                          <i className="bi bi-building-fill" style={{ color: "var(--primary)" }}></i>
-                          <span className="fw-semibold" style={{ fontSize: 14 }}>{empresa.nombre}</span>
-                        </div>
-                      </div>
-                    )}
                   </div>
-
-                  {!isAdmin && (
-                    <div
-                      className="alert border-0 rounded-3 small d-flex align-items-start mt-4 mb-0"
-                      style={{ background: "rgba(79,70,229,.06)", color: "var(--primary)" }}
-                    >
-                      <i className="bi bi-info-circle-fill me-2 mt-1 flex-shrink-0"></i>
-                      Para cambiar tu contraseña o datos personales, contacta al administrador del sistema.
-                    </div>
-                  )}
                 </div>
               </div>
             )}
