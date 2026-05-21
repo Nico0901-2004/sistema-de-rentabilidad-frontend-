@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import Layout from "../../components/layout/Layout";
 import { useAuth } from "../../context/AuthContext";
-import { getEmpresaById } from "../../services/empresaService";
 import { updateUsuario } from "../../services/usuarioService"; // Endpoint compatible con PUT /usuario/perfil
 
 const ROL_CONFIG = {
@@ -13,7 +12,6 @@ const ROL_CONFIG = {
 
 const MiPerfil = () => {
   const { user, updateUser } = useAuth();
-  const [empresa, setEmpresa] = useState(null);
   const [editing, setEditing] = useState(false);
   const [form, setForm]       = useState({ nombre: "", email: "", password: "" });
   const [showPass, setShowPass] = useState(false);
@@ -23,13 +21,6 @@ const MiPerfil = () => {
 
   // CRITERIO DE ACEPTACIÓN HU-02: Empleado y líder no pueden modificar su correo, propietario y admin sí.
   const isEmailRestricted = user?.rol === "empleado" || user?.rol === "lider";
-
-  useEffect(() => {
-    if (!user?.id_empresa) return;
-    getEmpresaById(user.id_empresa)
-      .then((r) => { if (r?.success) setEmpresa(r.data); })
-      .catch(() => {});
-  }, [user?.id_empresa]);
 
   const startEdit = () => {
     setForm({ nombre: user?.nombre || "", email: user?.email || "", password: "" });

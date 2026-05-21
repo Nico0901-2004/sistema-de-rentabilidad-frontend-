@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext"; // Importación del contexto de autenticación
 import { getMisMarcajes, marcarEntrada, marcarSalida, createHora } from "../../services/horasService";
-import { getMisProyectos, getProyectosDisponibles } from "../../services/proyectoService"; // Importación de ambos endpoints relacionales
+import { getMisProyectos } from "../../services/proyectoService";
 import { getFasesByProyecto } from "../../services/faseService";
 import { notifyError, notifySuccess } from "../../utils/notify";
 
