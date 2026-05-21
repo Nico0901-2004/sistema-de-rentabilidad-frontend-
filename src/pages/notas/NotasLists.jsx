@@ -6,6 +6,7 @@ import ConfirmModal from "../../components/ui/ConfirmModal";
 import { useAuth } from "../../context/AuthContext";
 import { getMisProyectos, getProyectoById } from "../../services/proyectoService";
 import { desactivarNota, getNotasByProyecto } from "../../services/notaService";
+import { notifySuccess, notifyError } from "../../utils/notify"; // Importaciones para cumplir con la HU-39
 import NotasForm from "./NotasForm";
 
 const formatDate = (value) => {
@@ -23,6 +24,8 @@ const NotasLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null,
   const params = useParams();
   const { user } = useAuth();
   const proyectoId = proyectoIdProp || params.proyectoId || params.id;
+  
+  // CRITERIO HU-39: El botón "Eliminar" se restringe exclusivamente al líder del proyecto
   const canManage = user?.rol === "lider";
 
   const [proyecto, setProyecto] = useState(null);
@@ -36,6 +39,8 @@ const NotasLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null,
   const [fechaHasta, setFechaHasta] = useState("");
   const [filterProyecto, setFilterProyecto] = useState("");
   const [confirm, setConfirm] = useState(null);
+  const [deleting, setDeleting] = useState(false); // Control de carga para el borrado seguro
+
   const canCreate = canManage && (!proyecto || Number(proyecto.id_lider) === Number(user?.id_usuario));
   const standaloneLider = !embedded && !proyectoId && user?.rol === "lider";
 
@@ -149,15 +154,27 @@ const NotasLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null,
     fetchNotas();
   };
 
+  // ==========================================
+  // FLUJO DE DESACTIVACIÓN LÓGICA (HU-39)
+  // Consume el endpoint inalterable y despacha notificaciones flotantes en el cliente
+  // ==========================================
   const handleDelete = async (nota) => {
-    if (!nota) return;
+    if (!nota || deleting) return;
 
     try {
+      setDeleting(true);
       await desactivarNota(nota.id_nota);
+      
+      // Notificación de éxito requerida por la HU
+      notifySuccess("Nota eliminada correctamente.");
+      
+      // Refrescar el listado en tiempo real
       await fetchNotas();
     } catch (err) {
-      setError(err.response?.data?.message || "No se pudo eliminar la nota.");
+      const msg = err.response?.data?.message || "No se pudo completar la eliminación de la nota.";
+      notifyError(msg);
     } finally {
+      setDeleting(false);
       setConfirm(null);
     }
   };
@@ -232,8 +249,8 @@ const NotasLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null,
           type="date"
           className="form-control"
           value={fechaHasta}
-          min={fechaDesde || undefined}
           onChange={(e) => setFechaHasta(e.target.value)}
+          min={fechaDesde || undefined}
         />
       </div>
       {(fechaDesde || fechaHasta) && (
@@ -310,7 +327,7 @@ const NotasLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null,
                   <i className={`bi ${stat.icon}`} style={{ color: stat.color, fontSize: 20 }}></i>
                 </div>
                 <div>
-                  <p className="text-muted small mb-0">{stat.label}</p>
+                  <p className="text-muted small mb-0">Originales</p>
                   <h4 className="fw-bold mb-0" style={{ color: stat.color }}>{stat.value}</h4>
                 </div>
               </div>
@@ -343,13 +360,20 @@ const NotasLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null,
           Number(nota.id_lider) === Number(user?.id_usuario) ? (
             <div className="d-flex gap-2 justify-content-end">
               <button
-                className="btn btn-sm btn-success"
+                className="btn btn-sm btn-success shadow-sm"
+                type="button"
                 title="Editar"
                 onClick={() => { setEditingNota(nota); setShowForm(true); }}
               >
                 <i className="bi bi-pencil-square"></i>
               </button>
-              <button className="btn btn-sm btn-danger" title="Eliminar" onClick={() => setConfirm(nota)}>
+              {/* CRITERIO HU-39: Botón Eliminar asignado dinámicamente con modal de confirmación */}
+              <button 
+                className="btn btn-sm btn-danger shadow-sm" 
+                type="button"
+                title="Eliminar" 
+                onClick={() => setConfirm(nota)}
+              >
                 <i className="bi bi-trash-fill"></i>
               </button>
             </div>
@@ -357,14 +381,22 @@ const NotasLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null,
         ) : undefined}
       />
 
+      {/* MODAL DE CONFIRMACIÓN EXIGIDO POR LA HU-39 */}
       {confirm && (
         <ConfirmModal
           danger
           title="Eliminar nota"
-          message="¿Deseas eliminar esta nota? Se ocultará del proyecto."
-          confirmLabel={<><i className="bi bi-trash-fill me-2"></i>Eliminar</>}
+          message={`¿Estás completamente seguro de que deseas desactivar esta nota? Se mantendrá guardada en el historial del proyecto de forma privada.`}
+          confirmLabel={
+            deleting ? (
+              <><span className="spinner-border spinner-border-sm me-2"></span>Eliminando...</>
+            ) : (
+              <><i className="bi bi-trash-fill me-2"></i>Eliminar nota</>
+            )
+          }
           onConfirm={() => handleDelete(confirm)}
           onCancel={() => setConfirm(null)}
+          disabled={deleting}
         />
       )}
     </div>
