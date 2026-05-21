@@ -69,7 +69,7 @@ const ButtonMarcaje = () => {
     cargarEstadoMarcaje();
   }, [cargarEstadoMarcaje]);
 
-const handleMarcarEntrada = async () => {
+  const handleMarcarEntrada = async () => {
     if (loading || marcaje.entrada) return;
     try {
       setLoading(true);
@@ -86,21 +86,11 @@ const handleMarcarEntrada = async () => {
       notifySuccess(okMessage);
       await cargarEstadoMarcaje();
     } catch (error) {
-      const status = error?.response?.status;
       const backendMessage = error?.response?.data?.message;
-
-      // CONTROL DE PERMISOS EN EL CLIENTE PARA EL LÍDER
-      if (status === 403 && user?.rol === "lider") {
-        const infoLider = "Tu perfil de Líder cuenta con flexibilidad horaria y no requiere registrar asistencia en el reloj diario.";
-        setEstado("error");
-        setMensaje(infoLider);
-        notifyError("Acción restringida para Líderes");
-      } else {
-        const errorMessage = backendMessage || "No se pudo registrar la entrada.";
-        setEstado("error");
-        setMensaje(errorMessage);
-        notifyError(errorMessage);
-      }
+      const errorMessage = backendMessage || "No se pudo registrar la entrada.";
+      setEstado("error");
+      setMensaje(errorMessage);
+      notifyError(errorMessage);
       await cargarEstadoMarcaje();
     } finally {
       setLoading(false);
@@ -120,14 +110,21 @@ const handleMarcarEntrada = async () => {
       setMarcaje({ entrada: true, salida: true });
       localStorage.setItem(storageKey, JSON.stringify({ entrada: true, salida: true }));
       
-      // EVALUACIÓN DE ENDPOINTS AUTORIZADOS SEGÚN EL ROL DEL USUARIO
-      let resProyectos;
+      // ==========================================
+      // CORRECCIÓN CLAVE PARA EL ROL LÍDER
+      // Si el rol es líder, registramos su salida exitosamente, pero detenemos el flujo aquí
+      // para evitar abrirle el modal de imputación horaria innecesario.
+      // ==========================================
       if (user?.rol === "lider") {
-        resProyectos = await getProyectosDisponibles(); // Endpoint con permisos para Líderes
-      } else {
-        resProyectos = await getMisProyectos(); // Endpoint con permisos para Empleados
+        setEstado("success");
+        setMensaje(okMessage);
+        notifySuccess(okMessage);
+        await cargarEstadoMarcaje();
+        return; // Terminamos la ejecución de manera limpia
       }
-      
+
+      // El flujo de horas masivas continúa exclusivamente para los Empleados
+      let resProyectos = await getMisProyectos(); 
       const proyectos = resProyectos?.success ? resProyectos.data : (Array.isArray(resProyectos) ? resProyectos : []);
       
       setProyectosDisponibles(proyectos);
