@@ -70,6 +70,10 @@ const ProyectoDetailModal = ({ proyecto, onClose, horasResumen = [], fases = [],
                       Presupuesto: S/ {Number(proyecto.presupuesto).toLocaleString("es-PE")}
                     </span>
                   )}
+                  {/* BADGE COMPLEMENTARIO DE MARGEN DE GANANCIA */}
+                  <span className="badge badge-role bg-success text-white">
+                    Margen: {proyecto.margen !== undefined && proyecto.margen !== null ? Number(proyecto.margen).toFixed(2) : "0.00"}%
+                  </span>
                 </div>
               </div>
             </div>

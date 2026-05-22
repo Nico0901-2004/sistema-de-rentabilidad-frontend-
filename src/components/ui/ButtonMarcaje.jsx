@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext"; // Importación del contexto de autenticación
-import { getMisMarcajes, marcarEntrada, marcarSalida, createHora } from "../../services/horasService";
+import { useAuth } from "../../context/AuthContext"; 
+import { getMisMarcajes, marcarEntrada, marcarSalida, createHora, getMisHoras } from "../../services/horasService";
 import { getMisProyectos } from "../../services/proyectoService";
 import { getFasesByProyecto } from "../../services/faseService";
-import { notifyError, notifySuccess } from "../../utils/notify";
+import { notifyError, notifySuccess, notifyInfo } from "../../utils/notify";
 
 const getTodayDate = () => {
   const now = new Date();
@@ -19,7 +19,7 @@ const getTodayKey = () => `marcaje_${getTodayDate()}`;
 
 const ButtonMarcaje = () => {
   const navigate = useNavigate();
-  const { user } = useAuth(); // Extracción del usuario y rol del contexto global
+  const { user } = useAuth(); 
   const storageKey = useMemo(() => getTodayKey(), []);
   
   const [loading, setLoading] = useState(false);
@@ -27,12 +27,12 @@ const ButtonMarcaje = () => {
   const [mensaje, setMensaje] = useState("");
   const [marcaje, setMarcaje] = useState({ entrada: false, salida: false });
 
-  // Estados para el control dinámico multiproyecto POST-SALIDA
+  // Estados para el control dinámico multiproyecto
   const [showModalHoras, setShowModalHoras] = useState(false);
   const [proyectosDisponibles, setProyectosDisponibles] = useState([]);
   const [fasesPorProyecto, setFasesPorProyecto] = useState({}); 
   const [filasHoras, setFilasHoras] = useState([
-    { id_proyecto: "", id_fase: "", horas: 0.5, descripcion: "" } // Inicializado en 0.5h para pruebas ágiles
+    { id_proyecto: "", id_fase: "", horas: 0.5, descripcion: "" }
   ]);
   const [errorModal, setErrorModal] = useState("");
 
@@ -97,46 +97,39 @@ const ButtonMarcaje = () => {
     }
   };
 
-  const handleMarcarSalidaOficial = async () => {
+  // ── NUEVO FLUJO INTERCEPTOR DE SALIDA ──
+  const handlePreMarcarSalida = async () => {
     if (loading || !marcaje.entrada || marcaje.salida) return;
     try {
       setLoading(true);
       setEstado("idle");
       setMensaje("");
 
-      const resSalida = await marcarSalida();
-      const okMessage = resSalida?.message || "Salida registrada de forma exitosa.";
-
-      setMarcaje({ entrada: true, salida: true });
-      localStorage.setItem(storageKey, JSON.stringify({ entrada: true, salida: true }));
-      
-      // ==========================================
-      // CORRECCIÓN CLAVE PARA EL ROL LÍDER
-      // Si el rol es líder, registramos su salida exitosamente, pero detenemos el flujo aquí
-      // para evitar abrirle el modal de imputación horaria innecesario.
-      // ==========================================
+      // 1. Si el rol es Líder, ellos no imputan horas en bloques masivos, marcan salida directo.
       if (user?.rol === "lider") {
+        const resSalida = await marcarSalida();
+        const okMessage = resSalida?.message || "Salida registrada de forma exitosa.";
+        setMarcaje({ entrada: true, salida: true });
+        localStorage.setItem(storageKey, JSON.stringify({ entrada: true, salida: true }));
         setEstado("success");
         setMensaje(okMessage);
         notifySuccess(okMessage);
         await cargarEstadoMarcaje();
-        return; // Terminamos la ejecución de manera limpia
+        return;
       }
 
-      // El flujo de horas masivas continúa exclusivamente para los Empleados
+      // 2. Si es Empleado, cargamos sus proyectos activos y abrimos el modal PRIMERO
       let resProyectos = await getMisProyectos(); 
       const proyectos = resProyectos?.success ? resProyectos.data : (Array.isArray(resProyectos) ? resProyectos : []);
       
       setProyectosDisponibles(proyectos);
       setFilasHoras([{ id_proyecto: "", id_fase: "", horas: 0.5, descripcion: "" }]);
+      setErrorModal("");
       
+      // Desplegamos el modal para el llenado mandatorio
       setShowModalHoras(true);
-      notifySuccess(okMessage);
     } catch (error) {
-      const errorMessage = error?.response?.data?.message || "No se pudo registrar la salida.";
-      setEstado("error");
-      setMensaje(errorMessage);
-      notifyError(errorMessage);
+      notifyError("Error al inicializar el proceso de salida.");
     } finally {
       setLoading(false);
     }
@@ -177,6 +170,7 @@ const ButtonMarcaje = () => {
     }
   };
 
+  // ── SE ENVÍAN LAS HORAS Y LUEGO AUTOMÁTICAMENTE SE MARCA LA SALIDA OFICIAL ──
   const handleGuardarHorasMasivas = async (e) => {
     e.preventDefault();
     setErrorModal("");
@@ -196,6 +190,7 @@ const ButtonMarcaje = () => {
     try {
       setLoading(true);
 
+      // A) Guardamos cada uno de los registros de tiempos
       for (const fila of filasHoras) {
         const payloadHora = {
           id_proyecto: Number(fila.id_proyecto),
@@ -206,12 +201,24 @@ const ButtonMarcaje = () => {
         await createHora(payloadHora);
       }
 
-      notifySuccess("¡Todas tus horas del día se guardaron correctamente!");
+      notifySuccess("¡Horas del día guardadas correctamente!");
+
+      // B) AUTOMÁTICO: Como las horas ya se guardaron con éxito, marcamos la salida real en el servidor
+      const resSalida = await marcarSalida();
+      const okMessage = resSalida?.message || "Salida registrada de forma exitosa.";
+
+      setMarcaje({ entrada: true, salida: true });
+      localStorage.setItem(storageKey, JSON.stringify({ entrada: true, salida: true }));
+      
+      setEstado("success");
+      setMensaje(okMessage);
+      notifySuccess(okMessage);
+
       setShowModalHoras(false);
       await cargarEstadoMarcaje();
       navigate("/mis-horas", { replace: true });
     } catch (error) {
-      const errMsg = error?.response?.data?.message || "Error al intentar guardar las horas en el servidor.";
+      const errMsg = error?.response?.data?.message || "Error al intentar finalizar la jornada.";
       setErrorModal(errMsg);
       notifyError(errMsg);
     } finally {
@@ -229,9 +236,9 @@ const ButtonMarcaje = () => {
       )}
 
       {marcaje.entrada && !marcaje.salida && (
-        <button className="btn btn-sm w-100 btn-warning fw-bold text-dark animate-fadeIn" onClick={handleMarcarSalidaOficial} disabled={loading}>
+        <button className="btn btn-sm w-100 btn-warning fw-bold text-dark animate-fadeIn" onClick={handlePreMarcarSalida} disabled={loading}>
           <i className={`bi ${loading ? "bi-hourglass-split animate-spin" : "bi-box-arrow-right"} me-2`}></i>
-          {loading ? "Marcando Salida..." : "Marcar Salida"}
+          {loading ? "Procesando..." : "Marcar Salida"}
         </button>
       )}
 
@@ -248,14 +255,14 @@ const ButtonMarcaje = () => {
         <div className="alert alert-danger py-2 small mb-0 mt-2 border-0 text-center animate-fadeIn">{mensaje}</div>
       )}
 
-      {/* MODAL MULTIPROYECTO DE REGISTRO DE HORAS POST-SALIDA */}
+      {/* MODAL MULTIPROYECTO DE REGISTRO DE HORAS PRE-SALIDA */}
       {showModalHoras && (
         <div className="modal-overlay" style={{ zIndex: 1060 }}>
           <div className="modal-card p-4 animate-scaleIn" style={{ maxWidth: "700px", width: "90%" }}>
             <div className="d-flex justify-content-between align-items-center mb-3">
               <div>
                 <h5 className="fw-bold mb-0">Imputación Diaria de Tiempos</h5>
-                <p className="text-muted small mb-0">Tu salida fue marcada. Ahora distribuye tus horas trabajadas en tus proyectos obligatoriamente para finalizar.</p>
+                <p className="text-muted small mb-0">Distribuye tus horas trabajadas del día en tus proyectos obligatoriamente para poder registrar tu salida.</p>
               </div>
             </div>
 
@@ -351,9 +358,9 @@ const ButtonMarcaje = () => {
               <div className="d-flex gap-2">
                 <button type="submit" className="btn btn-warning flex-fill fw-bold text-dark w-100" disabled={loading}>
                   {loading ? (
-                    <><span className="spinner-border spinner-border-sm me-2"></span>Guardando Tiempos...</>
+                    <><span className="spinner-border spinner-border-sm me-2"></span>Guardando y Marcando Salida...</>
                   ) : (
-                    <><i className="bi bi-check-lg me-1"></i> Finalizar y Guardar Horas</>
+                    <><i className="bi bi-check-lg me-1"></i> Guardar Horas y Registrar Salida</>
                   )}
                 </button>
               </div>

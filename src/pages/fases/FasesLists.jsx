@@ -341,8 +341,8 @@ const FasesLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null,
 
       <ConfirmModal
         show={Boolean(confirm)}
-        title="¿Desactivar Fase?"
-        message={`¿Seguro que quieres desactivar la fase "${confirm?.nombre}"? Los colaboradores ya no podrán registrar tiempos en esta etapa.`}
+        title="¿Eliminar Fase?"
+        message={`¿Seguro que quieres eliminar la fase "${confirm?.nombre}"? Los colaboradores ya no podrán registrar tiempos en esta etapa.`}
         confirmText="Confirmar"
         cancelText="Cancelar"
         variant="danger"
