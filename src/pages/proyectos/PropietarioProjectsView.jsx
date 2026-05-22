@@ -10,7 +10,7 @@ import NotasLists from "../notas/NotasLists";
 import { getFasesByProyecto } from "../../services/faseService";
 import { getProyectoById, getProyectos, eliminarProyecto, getHorasResumenProyecto } from "../../services/proyectoService";
 import { notifySuccess, notifyError } from "../../utils/notify";
-import { formatShortDate, getFaseId, getFaseNombre, getServicioNombre, getLiderNombre, getTotalHorasEstimadas, getTotalHorasResumen, isDateInRange, isProyectoActivo, normalizeHorasResumen, normalizeProyectoFases } from "./projectUtils";
+import { formatShortDate, getFaseId, getFaseNombre, getServicioNombre, getLiderNombre, getTotalHorasEstimadas, isDateInRange, isProyectoActivo, normalizeHorasResumen, normalizeProyectoFases } from "./projectUtils";
 
 const PropietarioProjectsView = () => {
   const [proyectos, setProyectos] = useState([]);
@@ -203,11 +203,6 @@ const PropietarioProjectsView = () => {
     );
   }, [fasesByProyecto, filterFase]);
 
-  const totalHorasFiltradas = filtered.reduce(
-    (acc, proyecto) => acc + getTotalHorasResumen(getResumenVisible(proyecto.id_proyecto)),
-    0
-  );
-
   const filters = (
     <div className="card border-0 rounded-4 mb-3" style={{ boxShadow: "var(--shadow-sm)" }}>
       <div className="card-body p-3">
@@ -388,11 +383,9 @@ const PropietarioProjectsView = () => {
         </div>
 
         {/* Stats */}
-        <div className="row g-3 mb-4 stagger">
+          <div className="row g-3 mb-4 stagger">
           {[
             { label: "Total proyectos", value: proyectos.length, icon: "bi-kanban-fill", color: "var(--primary)", bg: "rgba(79,70,229,.1)" },
-            // CORRECCIÓN: Comentada la tarjeta de acumulación total de horas del Propietario
-            // { label: "Horas registradas", value: loadingHoras ? "..." : `${totalHorasFiltradas.toFixed(1)}h`, icon: "bi-clock-history", color: "var(--accent)", bg: "rgba(6,182,212,.1)" },
           ].map((s, i) => (
             <div className="col-6 col-sm-4" key={i}>
               <div className="stat-card card-3d animate-fadeInUp">

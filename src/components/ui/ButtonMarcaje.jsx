@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext"; 
-import { getMisMarcajes, marcarEntrada, marcarSalida, createHora, getMisHoras } from "../../services/horasService";
+import { getMisMarcajes, marcarEntrada, marcarSalida, createHora } from "../../services/horasService";
 import { getMisProyectos } from "../../services/proyectoService";
 import { getFasesByProyecto } from "../../services/faseService";
-import { notifyError, notifySuccess, notifyInfo } from "../../utils/notify";
+import { notifyError, notifySuccess } from "../../utils/notify";
 
 const getTodayDate = () => {
   const now = new Date();

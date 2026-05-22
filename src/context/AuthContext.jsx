@@ -122,13 +122,13 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const updateUser = (fields) => {
+  const updateUser = useCallback((fields) => {
     setUser((currentUser) => {
       const updated = currentUser ? { ...currentUser, ...fields } : currentUser;
       if (updated) publishAuthEvent("AUTH_USER_UPDATED");
       return updated;
     });
-  };
+  }, [publishAuthEvent]);
 
   return (
     <AuthContext.Provider value={{ user, authLoading, login, logout, setUser, updateUser, refreshSession }}>

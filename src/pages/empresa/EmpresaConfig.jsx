@@ -42,7 +42,7 @@ const EmpresaConfig = () => {
       })
       .catch(() => setMensaje({ texto: "Error al cargar los datos.", tipo: "danger" }))
       .finally(() => setFetching(false));
-  }, [empresaId]);
+  }, [empresaId, updateUser]);
 
   const handleGuardar = async () => {
     if (!nombre.trim()) {
