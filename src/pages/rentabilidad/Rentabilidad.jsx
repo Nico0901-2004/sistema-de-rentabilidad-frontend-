@@ -4,9 +4,9 @@ import DataTable from "../../components/ui/DataTable";
 import { getRentabilidadProyectos } from "../../services/proyectoService";
 
 const numberFields = {
-  ingresos: ["ingresos_totales", "ingreso_total", "ingresos", "presupuesto"],
-  costos: ["costos_totales", "costo_total", "costo_real", "costos"],
-  utilidad: ["utilidad", "ganancia", "rentabilidad"],
+  presupuesto: ["presupuesto", "ingresos_totales", "ingreso_total", "ingresos"],
+  costos: ["costo_total", "costos_totales", "costo_real", "costos"],
+  rentabilidad: ["rentabilidad", "utilidad", "ganancia"],
   horas: ["horas_registradas", "total_horas", "horas"],
 };
 
@@ -37,19 +37,25 @@ const formatDate = (date) => (date ? String(date).slice(0, 10) : "—");
 const getProjectDate = (project) => project.fecha_inicio || project.fecha_fin_real || project.fecha_fin_estimada || "";
 
 const buildRow = (project) => {
-  const ingresos = getFirstNumber(project, numberFields.ingresos);
+  const presupuesto = getFirstNumber(project, numberFields.presupuesto);
   const costos = getFirstNumber(project, numberFields.costos);
-  const utilidad = getFirstNumber(project, numberFields.utilidad);
+  const rentabilidad = getFirstNumber(project, numberFields.rentabilidad);
   const horas = getFirstNumber(project, numberFields.horas);
-  const margen = ingresos && utilidad !== null ? (utilidad / ingresos) * 100 : null;
+  
+  // Capturamos el margen que viene del backend como el "Margen Deseado"
+  const margenDeseado = project.margen !== undefined && project.margen !== null ? Number(project.margen) : null;
+  
+  // Calculamos el Margen Real en base a la ejecución financiera actual
+  const margenReal = presupuesto && rentabilidad !== null ? (rentabilidad / presupuesto) * 100 : null;
 
   return {
     ...project,
-    ingresos,
+    presupuesto,
     costos,
-    utilidad,
+    rentabilidad,
     horas,
-    margen,
+    margenDeseado,
+    margenReal,
     servicio: project.nombre_servicio || project.servicio_nombre,
     lider: project.nombre_lider || project.lider_nombre,
   };
@@ -146,12 +152,13 @@ const Rentabilidad = () => {
   const rows = useMemo(() => proyectos.map(buildRow), [proyectos]);
 
   const available = useMemo(() => ({
-    ingresos: hasAnyField(proyectos, numberFields.ingresos),
+    presupuesto: hasAnyField(proyectos, numberFields.presupuesto),
     costos: hasAnyField(proyectos, numberFields.costos),
-    utilidad: hasAnyField(proyectos, numberFields.utilidad),
+    rentabilidad: hasAnyField(proyectos, numberFields.rentabilidad),
     horas: hasAnyField(proyectos, numberFields.horas),
     fechas: proyectos.some((p) => p.fecha_inicio || p.fecha_fin_estimada || p.fecha_fin_real),
-    margen: rows.some((p) => p.margen !== null),
+    margenDeseado: rows.some((p) => p.margenDeseado !== null),
+    margenReal: rows.some((p) => p.margenReal !== null),
   }), [proyectos, rows]);
 
   const filtered = useMemo(() => {
@@ -166,7 +173,7 @@ const Rentabilidad = () => {
       const matchDesde = !fechaDesde || (projectDate && projectDate.slice(0, 10) >= fechaDesde);
       const matchHasta = !fechaHasta || (projectDate && projectDate.slice(0, 10) <= fechaHasta);
 
-      const margen = project.margen;
+      const margen = project.margenReal;
       const matchMargen =
         !margenFiltro ||
         (margenFiltro === "positivo" && margen !== null && margen >= 0) ||
@@ -180,14 +187,14 @@ const Rentabilidad = () => {
 
   const totals = useMemo(() => {
     const sum = (field) => rows.reduce((acc, item) => acc + Number(item[field] || 0), 0);
-    const ingresos = sum("ingresos");
-    const utilidad = sum("utilidad");
+    const presupuesto = sum("presupuesto");
+    const rentabilidad = sum("rentabilidad");
     return {
-      ingresos,
+      presupuesto,
       costos: sum("costos"),
-      utilidad,
+      rentabilidad,
       horas: sum("horas"),
-      margen: ingresos ? (utilidad / ingresos) * 100 : 0,
+      margenReal: presupuesto ? (rentabilidad / presupuesto) * 100 : 0,
     };
   }, [rows]);
 
@@ -220,12 +227,12 @@ const Rentabilidad = () => {
       { header: "Servicio", cellClassName: "text-muted small", render: (project) => project.servicio || "—" },
     ];
 
-    if (available.ingresos) {
+    if (available.presupuesto) {
       baseColumns.push({
-        header: "Ingresos",
+        header: "Presupuesto",
         headerClassName: "text-end",
         cellClassName: "text-end fw-semibold",
-        render: (project) => project.ingresos !== null ? formatMoney(project.ingresos) : "—",
+        render: (project) => project.presupuesto !== null ? formatMoney(project.presupuesto) : "—",
       });
     }
 
@@ -238,26 +245,35 @@ const Rentabilidad = () => {
       });
     }
 
-    if (available.utilidad) {
+    if (available.rentabilidad) {
       baseColumns.push({
-        header: "Utilidad",
+        header: "Rentabilidad",
         headerClassName: "text-end",
         cellClassName: "text-end fw-bold",
         render: (project) => (
-          <span style={{ color: Number(project.utilidad || 0) >= 0 ? "var(--success)" : "var(--danger)" }}>
-            {project.utilidad !== null ? formatMoney(project.utilidad) : "—"}
+          <span style={{ color: Number(project.rentabilidad || 0) >= 0 ? "var(--success)" : "var(--danger)" }}>
+            {project.rentabilidad !== null ? formatMoney(project.rentabilidad) : "—"}
           </span>
         ),
       });
     }
 
-    if (available.margen) {
+    if (available.margenDeseado) {
       baseColumns.push({
-        header: "Margen",
+        header: "Margen Deseado",
+        headerClassName: "text-end",
+        cellClassName: "text-end fw-semibold text-muted small",
+        render: (project) => project.margenDeseado !== null ? `${formatNumber(project.margenDeseado, 1)}%` : "—",
+      });
+    }
+
+    if (available.margenReal) {
+      baseColumns.push({
+        header: "Margen Real",
         headerClassName: "text-end",
         cellClassName: "text-end",
-        render: (project) => project.margen !== null ? (() => {
-          const status = getMarginStatus(project.margen);
+        render: (project) => project.margenReal !== null ? (() => {
+          const status = getMarginStatus(project.margenReal);
           return (
             <span
               className="d-inline-flex align-items-center justify-content-end gap-2 fw-bold"
@@ -274,7 +290,7 @@ const Rentabilidad = () => {
               }}
             >
               <i className={`bi ${status.icon}`} style={{ fontSize: 12 }}></i>
-              {formatNumber(project.margen, 1)}%
+              {formatNumber(project.margenReal, 1)}%
             </span>
           );
         })() : <span className="text-muted">—</span>,
@@ -346,9 +362,9 @@ const Rentabilidad = () => {
             </>
           )}
 
-          {available.margen && (
+          {available.margenReal && (
             <div className="col-12 col-lg-2">
-              <label className="form-label small fw-bold text-muted">Margen</label>
+              <label className="form-label small fw-bold text-muted">Margen Real</label>
               <select className="form-select" value={margenFiltro} onChange={(e) => setMargenFiltro(e.target.value)}>
                 <option value="">Todos</option>
                 <option value="alto">30% o más</option>
@@ -387,9 +403,9 @@ const Rentabilidad = () => {
         )}
 
         <div className="row g-3 mb-4 stagger">
-          {available.ingresos && (
+          {available.presupuesto && (
             <div className="col-12 col-sm-6 col-xl-3">
-              <StatCard icon="bi-cash-stack" label="Ingresos totales" value={loading ? "..." : formatMoney(totals.ingresos)} color="#4F46E5" bg="rgba(79,70,229,.1)" />
+              <StatCard icon="bi-cash-stack" label="Presupuesto total" value={loading ? "..." : formatMoney(totals.presupuesto)} color="#4F46E5" bg="rgba(79,70,229,.1)" />
             </div>
           )}
           {available.costos && (
@@ -397,19 +413,14 @@ const Rentabilidad = () => {
               <StatCard icon="bi-receipt" label="Costos totales" value={loading ? "..." : formatMoney(totals.costos)} color="#F59E0B" bg="rgba(245,158,11,.1)" />
             </div>
           )}
-          {available.utilidad && (
+          {available.rentabilidad && (
             <div className="col-12 col-sm-6 col-xl-3">
-              <StatCard icon="bi-graph-up-arrow" label="Utilidad total" value={loading ? "..." : formatMoney(totals.utilidad)} color={totals.utilidad >= 0 ? "#10B981" : "#EF4444"} bg={totals.utilidad >= 0 ? "rgba(16,185,129,.1)" : "rgba(239,68,68,.1)"} />
+              <StatCard icon="bi-graph-up-arrow" label="Rentabilidad total" value={loading ? "..." : formatMoney(totals.rentabilidad)} color={totals.rentabilidad >= 0 ? "#10B981" : "#EF4444"} bg={totals.rentabilidad >= 0 ? "rgba(16,185,129,.1)" : "rgba(239,68,68,.1)"} />
             </div>
           )}
-          {available.margen && (
+          {available.margenReal && (
             <div className="col-12 col-sm-6 col-xl-3">
-              <StatCard icon="bi-percent" label="Margen promedio" value={loading ? "..." : `${formatNumber(totals.margen, 1)}%`} color="#06B6D4" bg="rgba(6,182,212,.1)" />
-            </div>
-          )}
-          {available.horas && (
-            <div className="col-12 col-sm-6 col-xl-3">
-              <StatCard icon="bi-clock-history" label="Horas registradas" value={loading ? "..." : `${formatNumber(totals.horas, 1)}h`} color="#64748B" bg="rgba(100,116,139,.1)" />
+              <StatCard icon="bi-percent" label="Margen real promedio" value={loading ? "..." : `${formatNumber(totals.margenReal, 1)}%`} color="#06B6D4" bg="rgba(6,182,212,.1)" />
             </div>
           )}
         </div>

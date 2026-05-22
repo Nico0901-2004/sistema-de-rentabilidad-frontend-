@@ -9,6 +9,7 @@ const EMPTY = {
   id_servicio: "",
   id_lider: "",
   presupuesto: "", 
+  margen: "0", // Inicializamos el margen por defecto en 0
   fecha_inicio: "", 
   fecha_fin_estimada: "",
   empleados_ids: [],
@@ -25,8 +26,6 @@ const ProyectoForm = ({ proyectoId, onSaved, onCancel }) => {
   useEffect(() => {
     Promise.all([getServicios(), getUsuarios()])
       .then(([sRes, uRes]) => {
-        // CORRECCIÓN: Quitamos el filtro .filter(s => s.is_active) porque el backend no envía esa propiedad 
-        // pero ya filtra de forma nativa en SQL únicamente los servicios activos.
         if (sRes?.success && Array.isArray(sRes.data)) {
           setServicios(sRes.data);
         } else if (Array.isArray(sRes)) {
@@ -55,6 +54,7 @@ const ProyectoForm = ({ proyectoId, onSaved, onCancel }) => {
             id_servicio: p.id_servicio || "",
             id_lider: p.id_lider || "",
             presupuesto: p.presupuesto || "",
+            margen: p.margen !== undefined && p.margen !== null ? String(p.margen) : "0", // Mapeamos el valor desde el backend
             fecha_inicio: p.fecha_inicio?.slice(0, 10) || "",
             fecha_fin_estimada: p.fecha_fin_estimada?.slice(0, 10) || "",
             empleados_ids: (p.empleados || []).map((e) => e.id_usuario),
@@ -91,6 +91,13 @@ const ProyectoForm = ({ proyectoId, onSaved, onCancel }) => {
     if (!form.id_servicio) return setError("Selecciona un servicio.");
     if (!form.id_lider) return setError("Selecciona un líder responsable.");
     if (!form.presupuesto || Number(form.presupuesto) < 1) return setError("El presupuesto debe ser mayor o igual a 1.");
+    
+    // Validación estricta del margen (% de ganancia) para el frontend
+    const margenNum = Number(form.margen);
+    if (form.margen === "" || isNaN(margenNum) || margenNum < 0 || margenNum > 100) {
+      return setError("El margen (% ganancia) debe ser un número entre 0 y 100.");
+    }
+
     if (!form.fecha_inicio) return setError("La fecha de inicio es obligatoria.");
     if (!form.fecha_fin_estimada) return setError("La fecha fin estimada es obligatoria.");
     if (form.fecha_inicio && form.fecha_fin_estimada) {
@@ -106,6 +113,7 @@ const ProyectoForm = ({ proyectoId, onSaved, onCancel }) => {
       id_servicio: Number(form.id_servicio),
       id_lider: Number(form.id_lider),
       presupuesto: Number(form.presupuesto),
+      margen: margenNum, // Añadimos el valor numérico al payload
       fecha_inicio: form.fecha_inicio,
       fecha_fin_estimada: form.fecha_fin_estimada,
       empleados: form.empleados_ids.map(Number),
@@ -175,6 +183,15 @@ const ProyectoForm = ({ proyectoId, onSaved, onCancel }) => {
             <div className="col-6 col-sm-3">
               <label className="form-label fw-semibold small">Presupuesto *</label>
               <input type="number" name="presupuesto" value={form.presupuesto} onChange={handleChange} className="form-control" min="1" step="0.01" placeholder="0.00" required />
+            </div>
+
+            {/* INPUT DE MARGEN (% GANANCIA) */}
+            <div className="col-6 col-sm-3">
+              <label className="form-label fw-semibold small">Margen (% ganancia) *</label>
+              <div className="input-group">
+                <input type="number" name="margen" value={form.margen} onChange={handleChange} className="form-control" min="0" max="100" step="0.01" placeholder="0.00" required />
+                <span className="input-group-text small">%</span>
+              </div>
             </div>
 
             <div className="col-12 col-sm-6">
