@@ -116,7 +116,6 @@ const PropietarioProjectsView = () => {
     } catch (err) {
       const backendMessage = err.response?.data?.message;
 
-      // Backend legacy: si el proyecto ya estaba desactivado, simulamos eliminación en UI.
       if (backendMessage === "El proyecto ya está desactivado") {
         setProyectos((prev) =>
           prev.filter((p) => p.id_proyecto !== confirm.proyecto.id_proyecto)
@@ -318,23 +317,25 @@ const PropietarioProjectsView = () => {
       ),
     },
     {
-      header: "Horas",
+      header: "Horas Estimadas", // CORRECCIÓN: Modificado título para reflejar solo lo estimado en tabla
       headerClassName: "text-center",
       style: { width: "10%" },
       cellClassName: "text-center",
       render: (p) => {
-        const resumenVisible = getResumenVisible(p.id_proyecto);
-        const totalHorasProyecto = getTotalHorasResumen(resumenVisible);
+        // CORRECCIÓN: Comentada la visualización de horas totales registradas
+        // const resumenVisible = getResumenVisible(p.id_proyecto);
+        // const totalHorasProyecto = getTotalHorasResumen(resumenVisible);
         const fasesProyecto = getFasesVisible(p.id_proyecto);
         const totalHorasEstimadas = getTotalHorasEstimadas(fasesProyecto);
 
         return (
           <>
-            <span className="fw-bold" style={{ color: "var(--primary)" }}>
+            {/* <span className="fw-bold" style={{ color: "var(--primary)" }}>
               {loadingHoras ? "..." : `${totalHorasProyecto.toFixed(1)}h`}
-            </span>
-            <span className="d-block text-muted" style={{ fontSize: 11 }}>
-              {totalHorasEstimadas.toFixed(1)}h estimadas
+            </span> 
+            */}
+            <span className="fw-bold" style={{ color: "var(--accent)" }}>
+              {totalHorasEstimadas.toFixed(1)}h
             </span>
             {fasesProyecto.length > 0 && (
               <span className="d-block text-muted" style={{ fontSize: 11 }}>
@@ -390,10 +391,8 @@ const PropietarioProjectsView = () => {
         <div className="row g-3 mb-4 stagger">
           {[
             { label: "Total proyectos", value: proyectos.length, icon: "bi-kanban-fill", color: "var(--primary)", bg: "rgba(79,70,229,.1)" },
-            { label: "Horas registradas", value: loadingHoras ? "..." : `${totalHorasFiltradas.toFixed(1)}h`, icon: "bi-clock-history", color: "var(--accent)", bg: "rgba(6,182,212,.1)" },
-            // TEMP: oculto para no mostrar estado en frontend
-            // { label: "Activos", value: proyectos.filter(isProyectoActivo).length, icon: "bi-check-circle-fill", color: "var(--success)", bg: "rgba(16,185,129,.1)" },
-            // { label: "Inactivos", value: proyectos.filter(p => !isProyectoActivo(p)).length, icon: "bi-x-circle-fill", color: "var(--danger)", bg: "rgba(239,68,68,.1)" },
+            // CORRECCIÓN: Comentada la tarjeta de acumulación total de horas del Propietario
+            // { label: "Horas registradas", value: loadingHoras ? "..." : `${totalHorasFiltradas.toFixed(1)}h`, icon: "bi-clock-history", color: "var(--accent)", bg: "rgba(6,182,212,.1)" },
           ].map((s, i) => (
             <div className="col-6 col-sm-4" key={i}>
               <div className="stat-card card-3d animate-fadeInUp">
@@ -495,7 +494,5 @@ const PropietarioProjectsView = () => {
     </Layout>
   );
 };
-
-/* ── Vista lider ─────────────────────────────── */
 
 export default PropietarioProjectsView;
