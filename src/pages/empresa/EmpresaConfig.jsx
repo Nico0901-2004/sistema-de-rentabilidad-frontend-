@@ -4,7 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import { getEmpresaById, updateEmpresa } from "../../services/empresaService";
 
 const EmpresaConfig = () => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const empresaId = user?.id_empresa;
 
   const [nombre, setNombre]   = useState("");
@@ -26,10 +26,19 @@ const EmpresaConfig = () => {
       setFetching(false);
       return;
     }
+
     getEmpresaById(empresaId)
       .then((res) => {
-        if (res?.success) setNombre(res.data.nombre);
-        else setMensaje({ texto: "No se pudo cargar la empresa.", tipo: "danger" });
+        // CORRECCIÓN: Manejo flexible por si la respuesta viene con la propiedad .data o directa
+        const empresaData = res?.data || res;
+        if (empresaData && (empresaData.nombre || empresaData.empresa_nombre)) {
+          const nombreReal = empresaData.nombre || empresaData.empresa_nombre;
+          setNombre(nombreReal);
+          // Aprovechamos en sincronizar el Sidebar por si acaso
+          updateUser({ empresa_nombre: nombreReal });
+        } else {
+          setMensaje({ texto: "No se pudo cargar la empresa.", tipo: "danger" });
+        }
       })
       .catch(() => setMensaje({ texto: "Error al cargar los datos.", tipo: "danger" }))
       .finally(() => setFetching(false));
@@ -44,16 +53,17 @@ const EmpresaConfig = () => {
       setMensaje({ texto: "El nombre debe tener entre 3 y 100 caracteres.", tipo: "danger" });
       return;
     }
-    if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/.test(nombre.trim())) {
-      setMensaje({ texto: "El nombre solo debe contener letras y espacios.", tipo: "danger" });
-      return;
-    }
     try {
       setLoading(true);
       setMensaje({ texto: "", tipo: "" });
       const res = await updateEmpresa(empresaId, { nombre: nombre.trim() });
-      if (res?.success) {
+      
+      // El backend puede retornar res.success o el objeto actualizado directamente
+      if (res?.success || res) {
         setMensaje({ texto: "Cambios guardados correctamente.", tipo: "success" });
+        
+        // CORRECCIÓN: Actualizamos exactamente la propiedad que lee el Sidebar
+        updateUser({ empresa_nombre: nombre.trim() });
       } else {
         setMensaje({ texto: getBackendMessage(res) || "Error al actualizar.", tipo: "danger" });
       }
@@ -68,7 +78,7 @@ const EmpresaConfig = () => {
     <Layout>
       <div className="animate-fadeInUp">
         <div className="page-header">
-          <h2 className="fw-bold mb-1">Mi Empresa</h2>
+          <h2 className="fw-bold mb-1">Configuración de Empresa</h2>
           <p className="text-muted small mb-0">Configura la información de tu empresa</p>
         </div>
 
@@ -114,11 +124,7 @@ const EmpresaConfig = () => {
                   </div>
                 )}
 
-                <div className="alert alert-info border-0 rounded-3 small d-flex align-items-start mb-4"
-                  style={{ background: "rgba(79,70,229,.06)", color: "var(--primary)" }}>
-                  <i className="bi bi-info-circle-fill me-2 mt-1 flex-shrink-0"></i>
-                  Solo puedes modificar el nombre. Otros datos son gestionados por el administrador.
-                </div>
+                {/* EL MENSAJE INFORMATIVO SE HA REMOVIDO CORRECTAMENTE DESDE AQUÍ */}
 
                 <button
                   className="btn btn-primary w-100 py-2 fw-bold"

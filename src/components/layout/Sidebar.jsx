@@ -1,10 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { getEmpresaById } from "../../services/empresaService";
 import ButtonMarcaje from "../ui/ButtonMarcaje";
 
-/* Nav items por rol — solo se muestran los que el usuario puede usar */
 const getNavItems = (rol) => {
   switch (rol) {
     case "admin":
@@ -27,7 +25,7 @@ const getNavItems = (rol) => {
     case "lider":
       return [
         { to: "/panel-lider", icon: "bi-grid-fill", label: "Mi Panel" },
-        { to: "/mis-marcajes", icon: "bi-calendar-check", label: "Mis Marcajes" }, // AÑADIDO: Vista de asistencia para el Líder
+        { to: "/mis-marcajes", icon: "bi-calendar-check", label: "Mis Marcajes" },
         { to: "/proyectos", icon: "bi-kanban-fill", label: "Proyectos" },
         { to: "/notas", icon: "bi-journal-text", label: "Notas" },
         { to: "/perfil", icon: "bi-person-circle", label: "Mi Perfil" },
@@ -51,19 +49,11 @@ const Sidebar = () => {
   const { user, logout } = useAuth();
   const rol = user?.rol || "empleado";
 
-  const [empresaNombre, setEmpresaNombre] = useState("");
-
-  useEffect(() => {
-    if (user?.rol !== "propietario" || !user?.id_empresa) return;
-    getEmpresaById(user.id_empresa)
-      .then((r) => {
-        if (r?.success) setEmpresaNombre(r.data.nombre);
-      })
-      .catch(() => {});
-  }, [user?.id_empresa, user?.rol]);
-
   const navItems = getNavItems(rol);
   const active = (path) => location.pathname === path;
+
+  // CORRECCIÓN: Mapeo exhaustivo de propiedades para garantizar la renderización del nombre real
+  const nombreEmpresa = user?.empresa_nombre || user?.empresaNombre || user?.empresa || (rol === "admin" ? "Panel Admin" : "Mi Empresa");
 
   const rolConfig = {
     admin: { label: "Administrador", color: "#FCA5A5", bg: "rgba(239,68,68,.25)" },
@@ -88,7 +78,6 @@ const Sidebar = () => {
         flexShrink: 0,
       }}
     >
-      {/* Brand */}
       <div className="p-4" style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}>
         <div className="d-flex align-items-center gap-3">
           <div
@@ -98,8 +87,8 @@ const Sidebar = () => {
             <i className="bi bi-building-fill text-white" style={{ fontSize: 16 }}></i>
           </div>
           <div className="overflow-hidden">
-            <p className="fw-bold text-white mb-0 text-truncate" style={{ fontSize: 13, maxWidth: 155 }}>
-              {empresaNombre || (rol === "admin" ? "Panel Admin" : "Mi Empresa")}
+            <p className="fw-bold text-white mb-0 text-truncate" style={{ fontSize: 13, maxWidth: 155 }} title={nombreEmpresa}>
+              {nombreEmpresa}
             </p>
             <span
               className="rounded-pill px-2 py-0"
@@ -111,7 +100,6 @@ const Sidebar = () => {
         </div>
       </div>
 
-      {/* Nav */}
       <nav className="flex-grow-1 py-3 px-2">
         {navItems.map((item) => {
           const isActive = active(item.to);
@@ -139,14 +127,12 @@ const Sidebar = () => {
         })}
       </nav>
 
-      {/* Marcaje de Entrada - CORRECCIÓN: Visible tanto para Empleados como para Líderes */}
       {(rol === "empleado" || rol === "lider") && (
         <div className="px-3 mb-3">
           <ButtonMarcaje />
         </div>
       )}
 
-      {/* User card + logout */}
       <div className="p-3" style={{ borderTop: "1px solid rgba(255,255,255,.07)" }}>
         <div
           className="d-flex align-items-center gap-2 rounded-3 p-2 mb-2"
