@@ -204,13 +204,7 @@ const MisHorasList = () => {
             <h2 className="fw-bold mb-1">Mis Horas Trabajadas</h2>
             <p className="text-muted small mb-0">Horas registradas de forma detallada por proyecto y fase</p>
           </div>
-          <button 
-            className="btn btn-primary shadow-sm" 
-            type="button"
-            onClick={() => { setSelectedHoraId(null); setShowForm(true); }}
-          >
-            <i className="bi bi-plus-lg me-1"></i> Registrar Horas
-          </button>
+          {/* SE REMOVIÓ EL BOTÓN "REGISTRAR HORAS" DE ESTA SECCIÓN */}
         </div>
 
         {registroObligatorio && (
