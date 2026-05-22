@@ -313,7 +313,7 @@ const NotasLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null,
         </div>
       </div>
 
-      <div className="row g-3 mb-4 stagger">
+      {/* <div className="row g-3 mb-4 stagger">
         {[
           { label: "Total notas", value: notas.length, icon: "bi-journal-text", color: "var(--primary)", bg: "rgba(79,70,229,.1)" },
           { label: "Registradas por", value: new Set(notas.map((nota) => nota.id_lider)).size, icon: "bi-person-lines-fill", color: "var(--accent)", bg: "rgba(6,182,212,.1)" },
@@ -334,7 +334,7 @@ const NotasLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null,
             </div>
           </div>
         ))}
-      </div>
+      </div> */}
 
       {showForm && (
         <NotasForm

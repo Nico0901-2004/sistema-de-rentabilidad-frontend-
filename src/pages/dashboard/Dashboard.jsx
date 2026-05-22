@@ -6,7 +6,7 @@ import { getServicios } from "../../services/servicioService";
 import { getUsuarios } from "../../services/usuarioService";
 import { getProyectos, getMisProyectos, getHorasResumenProyecto } from "../../services/proyectoService";
 import { getNotasByProyecto } from "../../services/notaService";
-import { getLiderNombre, getServicioNombre, getTotalHorasResumen, isProyectoActivo, normalizeHorasResumen } from "../proyectos/projectUtils";
+import { getLiderNombre, getServicioNombre,isProyectoActivo, normalizeHorasResumen } from "../proyectos/projectUtils";
 
 /* ── StatCard ──────────────────────────────────── */
 const StatCard = ({ icon, label, value, color, bg, delay = 0, to }) => {
@@ -28,18 +28,18 @@ const StatCard = ({ icon, label, value, color, bg, delay = 0, to }) => {
   return to ? <Link to={to} className="text-decoration-none d-block">{inner}</Link> : inner;
 };
 
-const MiniMetric = ({ icon, label, value, color, bg }) => (
-  <div className="d-flex align-items-center gap-3 p-3 rounded-4 h-100" style={{ background: bg }}>
-    <div className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
-      style={{ width: 38, height: 38, background: "rgba(255,255,255,.72)" }}>
-      <i className={`bi ${icon}`} style={{ color, fontSize: 17 }}></i>
-    </div>
-    <div style={{ minWidth: 0 }}>
-      <p className="text-muted small mb-0">{label}</p>
-      <h5 className="fw-bold mb-0 text-truncate" style={{ color }}>{value}</h5>
-    </div>
-  </div>
-);
+// const MiniMetric = ({ icon, label, value, color, bg }) => (
+//   <div className="d-flex align-items-center gap-3 p-3 rounded-4 h-100" style={{ background: bg }}>
+//     <div className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
+//       style={{ width: 38, height: 38, background: "rgba(255,255,255,.72)" }}>
+//       <i className={`bi ${icon}`} style={{ color, fontSize: 17 }}></i>
+//     </div>
+//     <div style={{ minWidth: 0 }}>
+//       <p className="text-muted small mb-0">{label}</p>
+//       <h5 className="fw-bold mb-0 text-truncate" style={{ color }}>{value}</h5>
+//     </div>
+//   </div>
+// );
 
 const RankingList = ({ title, icon, items, emptyMessage }) => (
   <div className="card border-0 rounded-4 overflow-hidden h-100" style={{ boxShadow: "var(--shadow-md)" }}>
@@ -242,10 +242,10 @@ const Dashboard = () => {
     };
   }, [rol]);
 
-  const totalHorasEmpresa = useMemo(
-    () => Object.values(horasResumen).reduce((acc, resumen) => acc + getTotalHorasResumen(resumen), 0),
-    [horasResumen]
-  );
+  // const totalHorasEmpresa = useMemo(
+  //   () => Object.values(horasResumen).reduce((acc, resumen) => acc + getTotalHorasResumen(resumen), 0),
+  //   [horasResumen]
+  // );
 
   const proyectosRecientes = useMemo(() => proyectos.slice(0, 5), [proyectos]);
 
@@ -391,31 +391,31 @@ const Dashboard = () => {
 
           <div className="row g-3 mb-4">
             <div className="col-12 col-md-4">
-              <MiniMetric
+              {/* <MiniMetric
                 icon="bi-clock-history"
                 label="Horas registradas"
                 value={loadingHoras ? "…" : `${totalHorasEmpresa.toFixed(1)}h`}
                 color="#4F46E5"
                 bg="rgba(79,70,229,.06)"
-              />
+              /> */}
             </div>
             <div className="col-12 col-md-4">
-              <MiniMetric
+              {/* <MiniMetric
                 icon="bi-calendar-check"
                 label="Proyectos con cierre real"
                 value={loadingStats ? "…" : proyectos.filter((p) => p.fecha_fin_real).length}
                 color="#10B981"
                 bg="rgba(16,185,129,.08)"
-              />
+              /> */}
             </div>
             <div className="col-12 col-md-4">
-              <MiniMetric
+              {/* <MiniMetric
                 icon="bi-list-check"
                 label="Promedio de empleados por proyecto"
                 value={loadingStats || proyectos.length === 0 ? (loadingStats ? "…" : "0.0") : (proyectos.reduce((acc, p) => acc + (Array.isArray(p.empleados) ? p.empleados.length : 0), 0) / proyectos.length).toFixed(1)}
                 color="#06B6D4"
                 bg="rgba(6,182,212,.08)"
-              />
+              /> */}
             </div>
           </div>
 

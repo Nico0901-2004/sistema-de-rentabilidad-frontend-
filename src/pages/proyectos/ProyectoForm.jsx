@@ -85,7 +85,7 @@ const ProyectoForm = ({ proyectoId, onSaved, onCancel }) => {
     const descripcion = form.descripcion.trim();
 
     if (nombre.length < 3 || nombre.length > 100) return setError("El nombre debe tener entre 3 y 100 caracteres.");
-    if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/.test(nombre)) return setError("El nombre solo debe contener letras y espacios.");
+    //if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/.test(nombre)) return setError("El nombre solo debe contener letras y espacios.");
     if (descripcion && (descripcion.length < 3 || descripcion.length > 500)) return setError("La descripción debe tener entre 3 y 500 caracteres.");
     if (descripcion && !/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/.test(descripcion)) return setError("La descripción solo debe contener letras y espacios.");
     if (!form.id_servicio) return setError("Selecciona un servicio.");

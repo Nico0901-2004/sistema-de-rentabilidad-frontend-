@@ -1,6 +1,6 @@
 import React from "react";
 import DataTable from "../../components/ui/DataTable";
-import { formatProyectoDate, getFaseId, getFaseNombre, getFaseHorasEstimadas, getHorasRegistradasByFase, getLiderNombre, getServicioNombre, getTotalHorasEstimadas, getTotalHorasResumen, isProyectoActivo } from "./projectUtils";
+import { formatProyectoDate, getFaseId, getFaseNombre, getFaseHorasEstimadas, getHorasRegistradasByFase, getLiderNombre, getServicioNombre, getTotalHorasEstimadas, getTotalHorasResumen } from "./projectUtils";
 
 const ProyectoDetailModal = ({ proyecto, onClose, horasResumen = [], fases = [], horasLoading = false, horasError = "" }) => {
   if (!proyecto) return null;
@@ -56,9 +56,6 @@ const ProyectoDetailModal = ({ proyecto, onClose, horasResumen = [], fases = [],
                   {proyecto.descripcion || "Sin descripción registrada."}
                 </p>
                 <div className="d-flex flex-wrap gap-2">
-                  <span className="badge badge-role badge-active">
-                    {isProyectoActivo(proyecto) ? "Activo" : "Inactivo"}
-                  </span>
                   <span className="badge badge-role badge-lider">
                     Horas: {horasLoading ? "..." : `${totalHoras.toFixed(1)}h`}
                   </span>
