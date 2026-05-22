@@ -6,6 +6,7 @@ import { getServicios } from "../../services/servicioService";
 import { getUsuarios } from "../../services/usuarioService";
 import { getProyectos, getMisProyectos, getHorasResumenProyecto } from "../../services/proyectoService";
 import { getNotasByProyecto } from "../../services/notaService";
+import { getMisHoras } from "../../services/horasService";
 import { getLiderNombre, getServicioNombre,isProyectoActivo, normalizeHorasResumen } from "../proyectos/projectUtils";
 
 /* ── StatCard ──────────────────────────────────── */
@@ -68,6 +69,32 @@ const RankingList = ({ title, icon, items, emptyMessage }) => (
     </div>
   </div>
 );
+
+const getHorasData = (response) => {
+  if (Array.isArray(response)) return response;
+  if (response?.success && Array.isArray(response.data)) return response.data;
+  return [];
+};
+
+const isSameMonth = (date) => {
+  const parsed = new Date(date);
+  const now = new Date();
+  return parsed.getFullYear() === now.getFullYear() && parsed.getMonth() === now.getMonth();
+};
+
+const isCurrentWeek = (date) => {
+  const parsed = new Date(date);
+  const now = new Date();
+  const start = new Date(now);
+  const day = start.getDay() || 7;
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - day + 1);
+
+  const end = new Date(start);
+  end.setDate(start.getDate() + 7);
+
+  return parsed >= start && parsed < end;
+};
 
 /* ── ProyectoHorasCard (propietario) ──────────── */
 const ProyectoHorasCard = ({ proyecto, resumen: resumenProp, loading: loadingProp = false }) => {
@@ -280,6 +307,9 @@ const Dashboard = () => {
   const [loadingMios, setLoadingMios]   = useState(false);
   const [miosError, setMiosError]       = useState("");
   const [liderNotasByProyecto, setLiderNotasByProyecto] = useState({});
+  const [misHoras, setMisHoras] = useState([]);
+  const [loadingMisHoras, setLoadingMisHoras] = useState(false);
+  const [misHorasError, setMisHorasError] = useState("");
 
   useEffect(() => {
     if (rol !== "lider" && rol !== "empleado") return;
@@ -335,6 +365,42 @@ const Dashboard = () => {
     };
   }, [rol]);
 
+  useEffect(() => {
+    if (rol !== "empleado") return;
+    let mounted = true;
+
+    const fetchMisHoras = async () => {
+      setLoadingMisHoras(true);
+      setMisHorasError("");
+
+      try {
+        const response = await getMisHoras();
+        if (!mounted) return;
+
+        if (response && response.success === false) {
+          setMisHoras([]);
+          setMisHorasError(response.message || "No se pudieron cargar tus horas registradas.");
+          return;
+        }
+
+        setMisHoras(getHorasData(response));
+      } catch (err) {
+        if (mounted) {
+          setMisHoras([]);
+          setMisHorasError(err?.response?.data?.message || "No se pudieron cargar tus horas registradas.");
+        }
+      } finally {
+        if (mounted) setLoadingMisHoras(false);
+      }
+    };
+
+    fetchMisHoras();
+
+    return () => {
+      mounted = false;
+    };
+  }, [rol]);
+
   const liderMetrics = useMemo(() => {
     const notas = Object.values(liderNotasByProyecto).reduce((acc, list) => acc + list.length, 0);
 
@@ -359,6 +425,24 @@ const Dashboard = () => {
       .sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0))
       .slice(0, 5);
   }, [misProyectos, liderNotasByProyecto]);
+
+  const misHorasDetalladas = useMemo(() => (
+    misHoras.map((registro) => ({
+      ...registro,
+      horas: Number(registro.horas || 0),
+    }))
+  ), [misHoras]);
+
+  const empleadoMetrics = useMemo(() => ({
+    horasMes: misHorasDetalladas
+      .filter((registro) => registro.fecha && isSameMonth(registro.fecha))
+      .reduce((acc, registro) => acc + registro.horas, 0),
+    horasSemana: misHorasDetalladas
+      .filter((registro) => registro.fecha && isCurrentWeek(registro.fecha))
+      .reduce((acc, registro) => acc + registro.horas, 0),
+  }), [misHorasDetalladas]);
+
+  const misHorasRecientes = useMemo(() => misHorasDetalladas.slice(0, 5), [misHorasDetalladas]);
 
   /* ── OWNER ─────────────────────────────────── */
   if (rol === "propietario") {
@@ -625,11 +709,10 @@ const Dashboard = () => {
         <div className="row g-3 mb-4 stagger">
           {[
             { icon: "bi-kanban-fill",    label: "Proyectos asignados", value: loadingMios ? "…" : misProyectos.length, color: "#4F46E5", bg: "rgba(79,70,229,.1)",  to: "/proyectos", delay: .05 },
-            { icon: "bi-clock-history",  label: "Horas este mes",      value: "—", color: "#10B981", bg: "rgba(16,185,129,.1)", to: "/mis-horas", delay: .10 },
-            { icon: "bi-calendar-check", label: "Horas esta semana",   value: "—", color: "#F59E0B", bg: "rgba(245,158,11,.1)", to: "/mis-horas", delay: .15 },
-            { icon: "bi-check2-all",     label: "Tareas completadas",  value: "—", color: "#06B6D4", bg: "rgba(6,182,212,.1)",  delay: .20 },
+            { icon: "bi-clock-history",  label: "Horas este mes",      value: loadingMisHoras ? "…" : `${empleadoMetrics.horasMes.toFixed(1)}h`, color: "#047857", bg: "rgba(16,185,129,.1)", to: "/mis-horas", delay: .10 },
+            { icon: "bi-calendar-check", label: "Horas esta semana",   value: loadingMisHoras ? "…" : `${empleadoMetrics.horasSemana.toFixed(1)}h`, color: "#B45309", bg: "rgba(245,158,11,.1)", to: "/mis-horas", delay: .15 },
           ].map((s, i) => (
-            <div className="col-6 col-md-3" key={i}>
+            <div className="col-12 col-md-4" key={i}>
               <StatCard {...s} />
             </div>
           ))}
@@ -676,15 +759,49 @@ const Dashboard = () => {
             <div className="card border-0 rounded-4 overflow-hidden" style={{ boxShadow: "var(--shadow-md)" }}>
               <div style={{ height: 3, background: "linear-gradient(90deg,#10B981,#06B6D4)" }}></div>
               <div className="card-body p-4">
-                <h6 className="fw-bold mb-3"><i className="bi bi-plus-circle me-2 text-success"></i>Registrar Horas</h6>
-                <div className="empty-state py-3">
-                  <i className="bi bi-clock-history" style={{ fontSize: "2rem" }}></i>
-                  <h6>Registro de horas</h6>
-                  <p>Registra y consulta tus horas trabajadas.</p>
-                  <Link to="/mis-horas" className="btn btn-sm btn-success px-4">
-                    <i className="bi bi-clock-history me-2"></i>Mis Horas
+                <div className="d-flex align-items-center justify-content-between mb-3">
+                  <h6 className="fw-bold mb-0"><i className="bi bi-clock-history me-2 text-success"></i>Horas registradas</h6>
+                  <Link to="/mis-horas" className="btn btn-sm btn-light rounded-3" style={{ fontSize: 11 }}>
+                    Ver todas <i className="bi bi-arrow-right ms-1"></i>
                   </Link>
                 </div>
+                {misHorasError && (
+                  <div className="alert alert-warning d-flex align-items-center small rounded-3 mb-3">
+                    <i className="bi bi-exclamation-triangle-fill me-2"></i>{misHorasError}
+                  </div>
+                )}
+                {loadingMisHoras ? (
+                  Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton rounded-3 mb-2" style={{ height: 42 }}></div>)
+                ) : misHorasRecientes.length === 0 ? (
+                  <div className="empty-state py-3">
+                    <i className="bi bi-clock-history" style={{ fontSize: "2rem" }}></i>
+                    <h6>Sin horas registradas</h6>
+                    <p>Tus registros aparecerán aquí cuando cargues horas trabajadas.</p>
+                  </div>
+                ) : (
+                  <>
+                    {misHorasRecientes.map((registro, index) => (
+                      <div key={registro.id_registro ?? index} className="d-flex align-items-center justify-content-between p-2 rounded-3 mb-1"
+                        style={{ background: "rgba(16,185,129,.04)" }}>
+                        <div className="overflow-hidden">
+                          <p className="fw-semibold mb-0 text-truncate" style={{ fontSize: 13 }}>
+                            {registro.proyecto_nombre || "Proyecto"}
+                          </p>
+                          <p className="text-muted mb-0 text-truncate" style={{ fontSize: 11 }}>
+                            {registro.fecha ? new Date(registro.fecha).toLocaleDateString() : "Sin fecha"}
+                            {registro.fase_nombre ? ` · ${registro.fase_nombre}` : ""}
+                          </p>
+                        </div>
+                        <span
+                          className="badge badge-role flex-shrink-0"
+                          style={{ background: "rgba(16,185,129,.14)", color: "#064E3B" }}
+                        >
+                          {registro.horas.toFixed(1)}h
+                        </span>
+                      </div>
+                    ))}
+                  </>
+                )}
               </div>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { getCurrentUser, logoutRequest } from "../services/authService";
+import { getUsuarioById } from "../services/usuarioService";
 
 const AUTH_CHANNEL = "auth";
 const AUTH_EVENT_KEY = "auth_event";
@@ -25,6 +26,19 @@ const clearLegacyAuthStorage = () => {
   }
 };
 
+const hydrateUserDetail = async (baseUser) => {
+  if (!baseUser?.id_usuario || !["empleado", "lider"].includes(baseUser.rol)) {
+    return baseUser;
+  }
+
+  try {
+    const response = await getUsuarioById(baseUser.id_usuario);
+    return { ...baseUser, ...(response.data || {}) };
+  } catch {
+    return baseUser;
+  }
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -34,7 +48,8 @@ export const AuthProvider = ({ children }) => {
     try {
       clearLegacyAuthStorage();
       const response = await getCurrentUser();
-      setUser(response.user || response.data || null);
+      const currentUser = response.user || response.data || null;
+      setUser(await hydrateUserDetail(currentUser));
     } catch {
       setUser(null);
     } finally {
@@ -102,11 +117,15 @@ export const AuthProvider = ({ children }) => {
     };
   }, [refreshSession]);
 
-  const login = (newUser) => {
+  const login = async (newUser) => {
     clearLegacyAuthStorage();
-    setUser(newUser);
-    setAuthLoading(false);
-    publishAuthEvent("AUTH_LOGIN");
+    setAuthLoading(true);
+    try {
+      setUser(await hydrateUserDetail(newUser));
+      publishAuthEvent("AUTH_LOGIN");
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   const logout = async () => {

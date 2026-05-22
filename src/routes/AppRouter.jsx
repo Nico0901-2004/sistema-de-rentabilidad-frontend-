@@ -42,6 +42,13 @@ const HOME = {
 
 const getHome = (user) => HOME[user?.rol] || "/login";
 
+const puedeVerMarcajes = (user) => {
+  const tipoPago = String(user?.tipo_pago || "").toLowerCase();
+  const ocultarMarcajePorTipoPago = user?.rol === "empleado" && tipoPago === "por_hora";
+
+  return (user?.rol === "lider" || user?.rol === "empleado") && !ocultarMarcajePorTipoPago;
+};
+
 /* ── Guards ────────────────────────────────────────── */
 const RequireAuth = ({ children }) => {
   const { user, authLoading } = useAuth();
@@ -54,6 +61,16 @@ const RequireRole = ({ roles, children }) => {
   if (authLoading) return null;
   if (!user) return <Navigate to="/login" replace />;
   if (!roles.includes(user.rol)) {
+    return <Navigate to={getHome(user)} replace />;
+  }
+  return children;
+};
+
+const RequireMarcajesAccess = ({ children }) => {
+  const { user, authLoading } = useAuth();
+  if (authLoading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!puedeVerMarcajes(user)) {
     return <Navigate to={getHome(user)} replace />;
   }
   return children;
@@ -129,7 +146,7 @@ export default function AppRouter() {
       <Route path="/mis-marcajes" element={
         <RequireAuth>
           {/* CORRECCIÓN: Permitimos al Líder acceder a su vista de historial de asistencia técnica */}
-          <RequireRole roles={["empleado", "lider"]}><MarcajesList /></RequireRole>
+          <RequireMarcajesAccess><MarcajesList /></RequireMarcajesAccess>
         </RequireAuth>
       } />
 

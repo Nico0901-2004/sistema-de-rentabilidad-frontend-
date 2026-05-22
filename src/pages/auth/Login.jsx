@@ -205,7 +205,7 @@ const Login = () => {
       setLoading(true);
       const data = await login(formData);
       clearFailedLogin(normalizedEmail);
-      auth.login(data.user);
+      await auth.login(data.user);
       navigate(destinos[data.user?.rol] || "/dashboard");
     } catch (err) {
       const status = err.response?.status;

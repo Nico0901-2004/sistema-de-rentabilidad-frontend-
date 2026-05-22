@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import ButtonMarcaje from "../ui/ButtonMarcaje";
 
-const getNavItems = (rol) => {
+const getNavItems = (rol, puedeVerMarcajes) => {
   switch (rol) {
     case "admin":
       return [
@@ -25,7 +25,7 @@ const getNavItems = (rol) => {
     case "lider":
       return [
         { to: "/panel-lider", icon: "bi-grid-fill", label: "Mi Panel" },
-        { to: "/mis-marcajes", icon: "bi-calendar-check", label: "Mis Marcajes" },
+        ...(puedeVerMarcajes ? [{ to: "/mis-marcajes", icon: "bi-calendar-check", label: "Mis Marcajes" }] : []),
         { to: "/proyectos", icon: "bi-kanban-fill", label: "Proyectos" },
         { to: "/notas", icon: "bi-journal-text", label: "Notas" },
         { to: "/perfil", icon: "bi-person-circle", label: "Mi Perfil" },
@@ -33,7 +33,7 @@ const getNavItems = (rol) => {
     case "empleado":
       return [
         { to: "/mi-espacio", icon: "bi-grid-fill", label: "Mi Espacio" },
-        { to: "/mis-marcajes", icon: "bi-calendar-check", label: "Mis Marcajes" },
+        ...(puedeVerMarcajes ? [{ to: "/mis-marcajes", icon: "bi-calendar-check", label: "Mis Marcajes" }] : []),
         { to: "/proyectos", icon: "bi-kanban-fill", label: "Mis Proyectos" },
         { to: "/mis-horas", icon: "bi-clock-history", label: "Mis Horas" },
         { to: "/perfil", icon: "bi-person-circle", label: "Mi Perfil" },
@@ -48,8 +48,11 @@ const Sidebar = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const rol = user?.rol || "empleado";
+  const tipoPago = String(user?.tipo_pago || "").toLowerCase();
+  const ocultarMarcajePorTipoPago = user?.rol === "empleado" && tipoPago === "por_hora";
+  const puedeVerMarcajes = (user?.rol === "lider" || user?.rol === "empleado") && !ocultarMarcajePorTipoPago;
 
-  const navItems = getNavItems(rol);
+  const navItems = getNavItems(rol, puedeVerMarcajes);
   const active = (path) => location.pathname === path;
 
   // CORRECCIÓN: Mapeo exhaustivo de propiedades para garantizar la renderización del nombre real
@@ -127,7 +130,7 @@ const Sidebar = () => {
         })}
       </nav>
 
-      {(rol === "empleado" || rol === "lider") && (
+      {puedeVerMarcajes && (
         <div className="px-3 mb-3">
           <ButtonMarcaje />
         </div>
