@@ -121,7 +121,9 @@ export const AuthProvider = ({ children }) => {
     clearLegacyAuthStorage();
     setAuthLoading(true);
     try {
-      setUser(await hydrateUserDetail(newUser));
+      const response = await getCurrentUser();
+      const currentUser = response.user || response.data || newUser || null;
+      setUser(await hydrateUserDetail(currentUser));
       publishAuthEvent("AUTH_LOGIN");
     } finally {
       setAuthLoading(false);
