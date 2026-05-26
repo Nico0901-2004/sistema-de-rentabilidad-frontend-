@@ -19,8 +19,14 @@
   },
   "scripts": {
     "start": "react-scripts start",
+    "start:qa": "node start-qa.js",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "qa:seed": "npm --prefix ../Sistema-de-Rentabilidad-Backend- run seed:qa",
+    "test:e2e:qa": "npm run qa:seed && playwright test",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -40,5 +46,10 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "dotenv": "^17.4.2",
+    "dotenv-cli": "^11.0.0"
   }
 }

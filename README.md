@@ -2,6 +2,120 @@
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
+## Entorno QA y pruebas E2E con Playwright
+
+El frontend queda preparado para ejecutar pruebas E2E con Playwright contra el backend Express en entorno QA.
+
+### Configuracion
+
+- Usa `.env.qa` en el frontend.
+- El backend debe ejecutarse con su propio `.env.qa`.
+- `REACT_APP_API_URL` debe apuntar al backend QA.
+- `FRONTEND_URL` del backend debe coincidir con `QA_FRONTEND_URL` para evitar bloqueos CORS.
+- Los tests E2E deben crearse dentro de `playwright-E2E/`.
+
+### Variables requeridas en `.env.qa`
+
+```env
+PORT=3001
+QA_ENV=qa
+REACT_APP_ENV=qa
+REACT_APP_API_URL=http://localhost:3000/api
+
+QA_FRONTEND_URL=http://localhost:3001
+QA_BACKEND_URL=http://localhost:3000
+
+QA_ADMIN_EMAIL=qa_admin@test.com
+QA_PROPIETARIO_EMAIL=qa_propietario@test.com
+QA_LIDER_EMAIL=qa_lider@test.com
+QA_EMPLEADO_EMAIL=qa_empleado1@test.com
+QA_USER_PASSWORD=Qa123456*
+```
+
+> No subir `.env.qa` al repositorio. Este archivo esta ignorado por Git.
+
+### Instalacion inicial
+
+```bash
+npm install
+npx playwright install
+```
+
+### Levantar frontend QA
+
+```bash
+npm run start:qa
+```
+
+Al iniciar, el frontend muestra el entorno cargado:
+
+```txt
+Node.js vXX.XX.X
+Frontend running on port 3001
+Environment: qa
+```
+
+### Sembrar datos QA desde backend
+
+```bash
+npm run qa:seed
+```
+
+Este comando usa los seeders existentes del backend y carga usuarios, empresas, servicios, proyectos, fases, horas y marcajes para pruebas.
+
+> Ejecutar seeds QA solo contra una base de datos QA.
+
+### Ejecutar pruebas E2E
+
+```bash
+npm run test:e2e
+```
+
+### Ejecutar pruebas E2E reiniciando datos QA antes
+
+```bash
+npm run test:e2e:qa
+```
+
+### Abrir Playwright en modo UI
+
+```bash
+npm run test:e2e:ui
+```
+
+### Ejecutar Playwright con navegador visible
+
+```bash
+npm run test:e2e:headed
+```
+
+### Scripts E2E disponibles
+
+```json
+{
+  "start:qa": "node start-qa.js",
+  "test:e2e": "playwright test",
+  "test:e2e:ui": "playwright test --ui",
+  "test:e2e:headed": "playwright test --headed",
+  "qa:seed": "npm --prefix ../Sistema-de-Rentabilidad-Backend- run seed:qa",
+  "test:e2e:qa": "npm run qa:seed && playwright test"
+}
+```
+
+### Datos QA precargados
+
+Los helpers E2E estan preparados para usar los usuarios creados por los seeders del backend:
+
+| Rol | Email |
+|---|---|
+| Admin | `qa_admin@test.com` |
+| Propietario | `qa_propietario@test.com` |
+| Lider | `qa_lider@test.com` |
+| Empleado | `qa_empleado1@test.com` |
+| Empleado | `qa_empleado2@test.com` |
+
+La contrasena se lee desde `QA_USER_PASSWORD`.
+
 ## Available Scripts
 
 In the project directory, you can run:
