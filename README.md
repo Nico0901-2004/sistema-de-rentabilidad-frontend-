@@ -116,6 +116,103 @@ Los helpers E2E estan preparados para usar los usuarios creados por los seeders 
 
 La contrasena se lee desde `QA_USER_PASSWORD`.
 
+## Pruebas unitarias y de componentes con Vitest + React Testing Library
+
+El frontend queda preparado para ejecutar pruebas unitarias, pruebas de componentes React e integracion ligera con Vitest + React Testing Library.
+
+Estas pruebas no levantan navegador real ni backend real. Para flujos reales de usuario, autenticacion contra backend, navegacion completa y pruebas por rol se debe seguir usando Playwright dentro de `playwright-E2E/`.
+
+### Configuracion
+
+- Vitest se configura desde `vitest.config.js`.
+- El entorno de pruebas usa `jsdom` para simular el DOM en Node.js.
+- React Testing Library se inicializa desde `tests/setup/setupTests.js`.
+- Las pruebas futuras deben crearse dentro de `tests/`.
+- Las pruebas E2E deben mantenerse dentro de `playwright-E2E/`.
+- El script `npm test` se mantiene con `react-scripts test` para no romper la configuracion original de Create React App.
+
+### Estructura de pruebas
+
+```txt
+tests/
+├── unit/
+├── components/
+├── integration/
+└── setup/
+    └── setupTests.js
+```
+
+- `tests/unit/`: pruebas de funciones, utilidades, validaciones, services mockeados y logica aislada.
+- `tests/components/`: pruebas de componentes React con React Testing Library.
+- `tests/integration/`: pruebas ligeras entre componentes, hooks o services mockeados.
+- `tests/setup/`: configuracion global usada por Vitest.
+- `tests/setup/setupTests.js`: carga `@testing-library/jest-dom/vitest`, limpia el DOM, mocks y storage despues de cada prueba.
+
+### Ejecutar Vitest en modo watch
+
+```bash
+npm run test:vitest
+```
+
+Tambien se puede usar:
+
+```bash
+npm run test:watch
+```
+
+### Ejecutar pruebas unitarias y de componentes una sola vez
+
+```bash
+npm run test:unit
+```
+
+Este comando ejecuta Vitest en modo `run`, pensado para validaciones puntuales o integracion continua.
+
+### Ejecutar cobertura
+
+```bash
+npm run test:coverage
+```
+
+La cobertura se genera con el provider `v8` y se guarda en `coverage/`.
+
+### Scripts Vitest disponibles
+
+```json
+{
+  "test:vitest": "vitest",
+  "test:unit": "vitest run",
+  "test:watch": "vitest",
+  "test:coverage": "vitest run --coverage"
+}
+```
+
+### Uso de `.env.qa` en Vitest
+
+`vitest.config.js` puede leer `.env.qa`, pero solo carga variables frontend no sensibles:
+
+- `REACT_APP_ENV`
+- `REACT_APP_API_URL`
+
+Las credenciales y URLs propias de E2E deben reservarse para Playwright:
+
+- `QA_FRONTEND_URL`
+- `QA_BACKEND_URL`
+- `QA_ADMIN_EMAIL`
+- `QA_PROPIETARIO_EMAIL`
+- `QA_LIDER_EMAIL`
+- `QA_EMPLEADO_EMAIL`
+- `QA_USER_PASSWORD`
+
+No hardcodear credenciales en pruebas unitarias o de componentes. Si una prueba necesita backend real o usuarios QA reales, debe implementarse como prueba E2E con Playwright.
+
+### Diferencia entre Vitest y Playwright
+
+| Herramienta | Carpeta | Uso principal | Backend real |
+|---|---|---|---|
+| Vitest + React Testing Library | `tests/` | Unitarias, componentes e integracion ligera con mocks | No |
+| Playwright | `playwright-E2E/` | Flujos reales en navegador, login real, roles y navegacion completa | Si |
+
 ## Available Scripts
 
 In the project directory, you can run:
