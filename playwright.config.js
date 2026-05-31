@@ -22,7 +22,7 @@ module.exports = defineConfig({
     baseURL: frontendUrl,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
-    video: 'on',
+    video: 'only-on-failure',
   },
   webServer: [
     {

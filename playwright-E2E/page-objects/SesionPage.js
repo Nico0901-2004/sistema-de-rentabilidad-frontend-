@@ -18,6 +18,7 @@ class SesionPage {
     this.passwordInput = page.locator('input[name="password"]');
     this.loginButton = page.locator('button[type="submit"]');
     this.systemBrand = page.getByText('Sistema de Rentabilidad').first();
+    this.topbarLogoutButton = page.getByRole('button', { name: /^Salir$/i });
     this.ownerDashboardSummary = page.getByText('Resumen de tu empresa');
     this.ownerDashboardLink = page.locator('nav a[href="/dashboard"]');
     this.ownerDashboardMain = page.locator('main');
@@ -49,6 +50,17 @@ class SesionPage {
     await this.page.evaluate((key) => {
       localStorage.removeItem(key);
     }, LOGIN_LOCKOUT_KEY);
+  }
+
+  async clearBrowserSessionState() {
+    await this.page.context().clearCookies();
+    await this.page.goto('/login');
+    await this.page.evaluate((key) => {
+      localStorage.clear();
+      sessionStorage.clear();
+      localStorage.removeItem(key);
+    }, LOGIN_LOCKOUT_KEY);
+    await this.expectLoginVisible();
   }
 
   async fillLoginCredentials(email, password) {
@@ -145,6 +157,22 @@ class SesionPage {
   async expectProtectedRouteRedirectsToLogin(path) {
     await this.page.goto(path);
     await this.expectLoginVisible();
+  }
+
+  async expectNoPrivateContentVisible() {
+    await expect(this.page.locator('main')).toHaveCount(0);
+    await expect(this.page.locator('nav')).toHaveCount(0);
+    await expect(this.logoutButton).not.toBeVisible();
+    await expect(this.topbarLogoutButton).not.toBeVisible();
+    await expect(this.ownerDashboardSummary).not.toBeVisible();
+  }
+
+  async expectPrivateRouteBlockedForAnonymousUser(path) {
+    await this.clearBrowserSessionState();
+    await this.expectBackendSessionInvalidated();
+    await this.expectProtectedRouteRedirectsToLogin(path);
+    await this.expectNoPrivateContentVisible();
+    await this.expectBackendSessionInvalidated();
   }
 
   async expectDashboardAccessBlocked() {
