@@ -8,6 +8,8 @@ const HOME_BY_ROLE = {
   empleado: '/mi-espacio',
 };
 
+const LOGIN_LOCKOUT_KEY = 'login_attempts_lockout';
+
 class SesionPage {
   constructor(page) {
     this.page = page;
@@ -19,6 +21,7 @@ class SesionPage {
     this.ownerDashboardSummary = page.getByText('Resumen de tu empresa');
     this.ownerDashboardLink = page.locator('nav a[href="/dashboard"]');
     this.ownerDashboardMain = page.locator('main');
+    this.invalidCredentialsAlert = page.getByText(/Credenciales incorrectas/i);
   }
 
   getCredentialsForRole(role) {
@@ -42,6 +45,12 @@ class SesionPage {
     await this.expectLoginVisible();
   }
 
+  async clearLocalLoginLockoutState() {
+    await this.page.evaluate((key) => {
+      localStorage.removeItem(key);
+    }, LOGIN_LOCKOUT_KEY);
+  }
+
   async fillLoginCredentials(email, password) {
     await this.emailInput.fill(email);
     await expect(this.emailInput).toHaveValue(email);
@@ -58,6 +67,29 @@ class SesionPage {
     await this.loginButton.click();
     expect((await loginResponse).ok()).toBeTruthy();
     await expect(this.page).toHaveURL(new RegExp(`${homePath}/?$`));
+  }
+
+  getInvalidPassword(password) {
+    return `${password}__invalid_cp_hu1_2`;
+  }
+
+  async submitInvalidLoginAndExpectRejected(role = 'propietario') {
+    const { email, password } = this.getCredentialsForRole(role);
+    const invalidPassword = this.getInvalidPassword(password);
+
+    await this.gotoLogin();
+    await this.clearLocalLoginLockoutState();
+    await this.fillLoginCredentials(email, invalidPassword);
+
+    const loginResponse = this.page.waitForResponse(
+      (response) => response.url().includes('/api/auth/login') && response.request().method() === 'POST'
+    );
+
+    await this.loginButton.click();
+    expect((await loginResponse).status()).toBe(401);
+    await expect(this.invalidCredentialsAlert).toBeVisible();
+    await expect(this.page).toHaveURL(/\/login\/?$/);
+    await expect(this.ownerDashboardSummary).not.toBeVisible();
   }
 
   async loginAs(role = 'propietario') {
@@ -113,6 +145,21 @@ class SesionPage {
   async expectProtectedRouteRedirectsToLogin(path) {
     await this.page.goto(path);
     await this.expectLoginVisible();
+  }
+
+  async expectDashboardAccessBlocked() {
+    await this.expectProtectedRouteRedirectsToLogin('/dashboard');
+    await this.expectBackendSessionInvalidated();
+  }
+
+  async clearBackendFailedLoginState(requestContext, role = 'propietario') {
+    const { backendUrl } = getQaEnv();
+    const { email, password } = this.getCredentialsForRole(role);
+    const response = await requestContext.post(`${backendUrl}/api/auth/login`, {
+      data: { email, password },
+    });
+
+    expect(response.ok()).toBeTruthy();
   }
 
   async expectBackendSessionInvalidated() {
