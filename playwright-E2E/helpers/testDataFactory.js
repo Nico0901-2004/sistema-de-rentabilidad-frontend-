@@ -13,6 +13,19 @@ const getProfileEditName = (currentName = '') => {
 
 const toIsoDate = (date) => date.toISOString().slice(0, 10);
 
+const numberToLetters = (value) => {
+  const letters = 'abcdefghijklmnopqrstuvwxyz';
+  let number = Number(value);
+  let result = '';
+
+  do {
+    result = letters[number % letters.length] + result;
+    number = Math.floor(number / letters.length);
+  } while (number > 0);
+
+  return result;
+};
+
 const getProjectRegistrationData = () => {
   const timestamp = Date.now();
   const startDate = new Date();
@@ -31,7 +44,28 @@ const getProjectRegistrationData = () => {
   };
 };
 
+const getOwnerRegistrationData = () => {
+  const timestamp = Date.now();
+  const suffix = numberToLetters(timestamp);
+
+  return {
+    nombre: `Propietario Prueba ${suffix}`,
+    email: `qa_propietario_${timestamp}@test.com`,
+    password: 'Password123*',
+  };
+};
+
+const getTemporaryCompanyData = () => {
+  const suffix = numberToLetters(Date.now());
+
+  return {
+    nombre: `Empresa Temporal ${suffix}`,
+  };
+};
+
 module.exports = {
   getProfileEditName,
   getProjectRegistrationData,
+  getOwnerRegistrationData,
+  getTemporaryCompanyData,
 };
