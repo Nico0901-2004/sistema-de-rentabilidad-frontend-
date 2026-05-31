@@ -155,6 +155,16 @@ class SesionPage {
     await this.expectBackendSessionInvalidated();
   }
 
+  async simulateInactivityTimeout(timeoutMs = 5000) {
+    await this.page.clock.runFor(timeoutMs + 1000);
+  }
+
+  async expectSessionClosedByInactivity() {
+    await this.expectLoginVisible();
+    await this.expectNoPrivateContentVisible();
+    await this.expectBackendSessionInvalidated();
+  }
+
   async fillLoginCredentials(email, password) {
     await this.emailInput.fill(email);
     await expect(this.emailInput).toHaveValue(email);
