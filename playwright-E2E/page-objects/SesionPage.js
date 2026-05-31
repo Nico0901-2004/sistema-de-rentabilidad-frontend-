@@ -1,4 +1,7 @@
 const { expect } = require('@playwright/test');
+const crypto = require('crypto');
+const dotenv = require('dotenv');
+const path = require('path');
 const { getQaEnv } = require('../helpers/env');
 
 const HOME_BY_ROLE = {
@@ -9,6 +12,54 @@ const HOME_BY_ROLE = {
 };
 
 const LOGIN_LOCKOUT_KEY = 'login_attempts_lockout';
+const ACCESS_TOKEN_COOKIE = 'access_token';
+const BACKEND_ENV_PATH = path.resolve(__dirname, '..', '..', '..', 'Sistema-de-Rentabilidad-Backend-', '.env.qa');
+
+const base64UrlEncode = (value) => Buffer.from(value).toString('base64url');
+
+const decodeJwtPayload = (token) => {
+  const [, encodedPayload] = token.split('.');
+
+  if (!encodedPayload) {
+    throw new Error('JWT invalido: no contiene payload');
+  }
+
+  return JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8'));
+};
+
+const signExpiredJwt = (payload) => {
+  dotenv.config({ path: BACKEND_ENV_PATH, quiet: true });
+
+  if (!process.env.JWT_SECRET) {
+    throw new Error('Falta JWT_SECRET para firmar el JWT expirado de QA');
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const header = {
+    alg: 'HS256',
+    typ: 'JWT',
+  };
+  const { iat, exp, nbf, iss, aud, ...basePayload } = payload;
+  const claims = {
+    ...basePayload,
+    sub: String(payload.sub || payload.id_usuario),
+    iat: now - 3600,
+    exp: now - 60,
+  };
+
+  if (process.env.JWT_REQUIRE_CLAIMS === 'true') {
+    claims.iss = process.env.JWT_ISSUER || 'sistema-de-rentabilidad-backend';
+    claims.aud = process.env.JWT_AUDIENCE || 'sistema-de-rentabilidad-client';
+  }
+
+  const unsignedToken = `${base64UrlEncode(JSON.stringify(header))}.${base64UrlEncode(JSON.stringify(claims))}`;
+  const signature = crypto
+    .createHmac('sha256', process.env.JWT_SECRET)
+    .update(unsignedToken)
+    .digest('base64url');
+
+  return `${unsignedToken}.${signature}`;
+};
 
 class SesionPage {
   constructor(page) {
@@ -61,6 +112,47 @@ class SesionPage {
       localStorage.removeItem(key);
     }, LOGIN_LOCKOUT_KEY);
     await this.expectLoginVisible();
+  }
+
+  async setExpiredAccessTokenCookieFromCurrentSession() {
+    const { backendUrl } = getQaEnv();
+    const [currentAccessTokenCookie] = (await this.page.context().cookies(backendUrl))
+      .filter((cookie) => cookie.name === ACCESS_TOKEN_COOKIE);
+
+    expect(currentAccessTokenCookie).toBeDefined();
+
+    const expiredToken = signExpiredJwt(decodeJwtPayload(currentAccessTokenCookie.value));
+    const cookieUrl = currentAccessTokenCookie.domain && currentAccessTokenCookie.path
+      ? undefined
+      : backendUrl;
+
+    await this.page.context().addCookies([
+      {
+        ...currentAccessTokenCookie,
+        name: ACCESS_TOKEN_COOKIE,
+        value: expiredToken,
+        ...(cookieUrl ? { url: cookieUrl } : {}),
+        httpOnly: true,
+        secure: backendUrl.startsWith('https://'),
+        sameSite: 'Lax',
+        expires: Math.floor(Date.now() / 1000) + 3600,
+      },
+    ]);
+  }
+
+  async expectCurrentSessionExpiresOnProtectedNavigation(path = '/dashboard') {
+    await this.setExpiredAccessTokenCookieFromCurrentSession();
+
+    const expiredSessionResponse = this.page.waitForResponse(
+      (response) => response.url().includes('/api/auth/me') && response.request().method() === 'GET'
+    );
+
+    await this.page.goto(path);
+
+    expect((await expiredSessionResponse).status()).toBe(401);
+    await this.expectLoginVisible();
+    await this.expectNoPrivateContentVisible();
+    await this.expectBackendSessionInvalidated();
   }
 
   async fillLoginCredentials(email, password) {
