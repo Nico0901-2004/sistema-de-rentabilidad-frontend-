@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { createProyecto, updateProyecto, getProyectoById } from "../../services/proyectoService";
 import { getServicios } from "../../services/servicioService";
 import { getUsuarios } from "../../services/usuarioService";
-import { notifySuccess, notifyError } from "../../utils/notify"; // <-- 1. IMPORTAMOS LAS NOTIFICACIONES
+import { notifySuccess, notifyError } from "../../utils/notify"; 
 
 const EMPTY = {
   nombre: "", 
@@ -25,6 +25,11 @@ const ProyectoForm = ({ proyectoId, onSaved, onCancel }) => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(""); 
   const [loading, setLoading] = useState(false);
+
+  // --- LÓGICA DEL TICKET: Calcular fecha actual y evaluar si es pasada ---
+  const todayStr = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const isPastDate = form.fecha_inicio && form.fecha_inicio < todayStr;
+  // ------------------------------------------------------------------------
 
   useEffect(() => {
     Promise.all([getServicios(), getUsuarios()])
@@ -97,7 +102,7 @@ const ProyectoForm = ({ proyectoId, onSaved, onCancel }) => {
       const isUnchanged = JSON.stringify(form) === JSON.stringify(originalForm);
       if (isUnchanged) {
         setSuccess("No se realizaron cambios.");
-        notifySuccess("No se realizaron cambios."); // <-- 2. NOTIFICACIÓN FLOTANTE (Sin Cambios)
+        notifySuccess("No se realizaron cambios."); 
         setTimeout(() => onSaved?.(), 1000); 
         return; 
       }
@@ -148,17 +153,17 @@ const ProyectoForm = ({ proyectoId, onSaved, onCancel }) => {
       if (res?.success) {
         const successMsg = proyectoId ? "Proyecto actualizado correctamente." : "Proyecto creado correctamente.";
         setSuccess(successMsg);
-        notifySuccess(successMsg); // <-- 3. NOTIFICACIÓN FLOTANTE (Éxito)
+        notifySuccess(successMsg); 
         setTimeout(() => onSaved?.(), 1000);
       } else {
         const errorMsg = res?.message || "Error al guardar.";
         setError(errorMsg);
-        notifyError(errorMsg); // <-- 4. NOTIFICACIÓN FLOTANTE (Error)
+        notifyError(errorMsg); 
       }
     } catch (err) {
       const catchMsg = err.response?.data?.message || "Error en el servidor.";
       setError(catchMsg);
-      notifyError(catchMsg); // <-- 5. NOTIFICACIÓN FLOTANTE (Error del servidor)
+      notifyError(catchMsg); 
     } finally {
       setLoading(false);
     }
@@ -236,7 +241,15 @@ const ProyectoForm = ({ proyectoId, onSaved, onCancel }) => {
             <div className="col-12 col-sm-6">
               <label className="form-label fw-semibold small">Fecha inicio *</label>
               <input type="date" name="fecha_inicio" value={form.fecha_inicio} onChange={handleChange} className="form-control" required disabled={loading || !!success} />
+              {/* --- ADVERTENCIA VISUAL (SOFT WARNING) --- */}
+              {isPastDate && (
+                <div className="form-text text-warning small mt-1 fw-medium animate-fadeIn">
+                  <i className="bi bi-exclamation-triangle-fill me-1"></i>
+                  Advertencia: Estás registrando una fecha en el pasado.
+                </div>
+              )}
             </div>
+            
             <div className="col-12 col-sm-6">
               <label className="form-label fw-semibold small">Fecha fin estimada *</label>
               <input type="date" name="fecha_fin_estimada" value={form.fecha_fin_estimada} onChange={handleChange} className="form-control" required disabled={loading || !!success} />
@@ -269,7 +282,7 @@ const ProyectoForm = ({ proyectoId, onSaved, onCancel }) => {
               {loading ? (
                 <><span className="spinner-border spinner-border-sm me-2"></span>Guardando...</>
               ) : success ? (
-                <><i className="bi bi-check-lg me-2"></i>Guardado</>
+                <><i className="bi bi-check-lg me-2"></i>{success === "No se realizaron cambios." ? "Sin cambios" : "Guardado"}</>
               ) : proyectoId ? (
                 "Actualizar Proyecto"
               ) : (
