@@ -5,6 +5,10 @@ import { getUsuarioById } from "../services/usuarioService";
 const AUTH_CHANNEL = "auth";
 const AUTH_EVENT_KEY = "auth_event";
 
+// --- NUEVAS CONSTANTES PARA INACTIVIDAD ---
+const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutos en milisegundos
+const LAST_ACTIVITY_KEY = "last_activity";
+
 const AuthContext = createContext({
   user: null,
   authLoading: true,
@@ -130,7 +134,8 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = async () => {
+  // --- SE ENVOLVIÓ EN useCallback PARA PODER USARLA SEGURO EN EL useEffect DE INACTIVIDAD ---
+  const logout = useCallback(async () => {
     try {
       await logoutRequest();
     } catch {
@@ -141,7 +146,7 @@ export const AuthProvider = ({ children }) => {
       setAuthLoading(false);
       publishAuthEvent("AUTH_LOGOUT");
     }
-  };
+  }, [publishAuthEvent]);
 
   const updateUser = useCallback((fields) => {
     setUser((currentUser) => {
@@ -150,6 +155,63 @@ export const AuthProvider = ({ children }) => {
       return updated;
     });
   }, [publishAuthEvent]);
+
+  // --- NUEVA LÓGICA: DETECCIÓN DE INACTIVIDAD ---
+  useEffect(() => {
+    // Si no hay usuario logueado, no hacemos nada
+    if (!user) return;
+
+    let intervalId;
+
+    const updateActivityTimestamp = () => {
+      localStorage.setItem(LAST_ACTIVITY_KEY, Date.now().toString());
+    };
+
+    const checkInactivity = () => {
+      const lastActivityStr = localStorage.getItem(LAST_ACTIVITY_KEY);
+      if (!lastActivityStr) return;
+
+      const lastActivity = parseInt(lastActivityStr, 10);
+      const now = Date.now();
+
+      // Si pasaron los 15 minutos de inactividad, cerramos sesión
+      if (now - lastActivity > INACTIVITY_TIMEOUT_MS) {
+        logout();
+      }
+    };
+
+    // 1. Establecemos la primera marca de tiempo al loguearse/cargar la app
+    updateActivityTimestamp();
+
+    // 2. Control (Throttle) para no sobrecargar el navegador con eventos al mover el mouse
+    let lastCall = 0;
+    const handleUserActivity = () => {
+      const now = Date.now();
+      // Solo actualizamos la marca de actividad una vez por segundo
+      if (now - lastCall > 1000) {
+        updateActivityTimestamp();
+        lastCall = now;
+      }
+    };
+
+    // 3. Escuchamos estos eventos para saber si el usuario está usando el sistema
+    const events = ["mousemove", "keydown", "mousedown", "touchstart", "scroll"];
+    events.forEach((event) => {
+      window.addEventListener(event, handleUserActivity, { passive: true });
+    });
+
+    // 4. Verificamos cada 30 segundos si el usuario ya excedió el tiempo límite
+    intervalId = setInterval(checkInactivity, 30000);
+
+    // 5. Limpieza cuando el componente se desmonta o el usuario cierra sesión
+    return () => {
+      events.forEach((event) => {
+        window.removeEventListener(event, handleUserActivity);
+      });
+      clearInterval(intervalId);
+      localStorage.removeItem(LAST_ACTIVITY_KEY);
+    };
+  }, [user, logout]); // El efecto depende de `user` y `logout`
 
   return (
     <AuthContext.Provider value={{ user, authLoading, login, logout, setUser, updateUser, refreshSession }}>
