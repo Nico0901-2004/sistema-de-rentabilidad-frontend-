@@ -136,6 +136,10 @@ const MisHorasList = () => {
     setShowForm(true);
   };
 
+  // --- LÓGICA DEL TICKET: Obtener la fecha de hoy para compararla con los registros ---
+  const todayStr = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  // -----------------------------------------------------------------------------------
+
   const columns = [
     {
       header: "Fecha",
@@ -204,7 +208,6 @@ const MisHorasList = () => {
             <h2 className="fw-bold mb-1">Mis Horas Trabajadas</h2>
             <p className="text-muted small mb-0">Horas registradas de forma detallada por proyecto y fase</p>
           </div>
-          {/* SE REMOVIÓ EL BOTÓN "REGISTRAR HORAS" DE ESTA SECCIÓN */}
         </div>
 
         {registroObligatorio && (
@@ -262,13 +265,27 @@ const MisHorasList = () => {
           emptyIcon="bi-clock-history"
           emptyMessage="Sin horas registradas"
           rowClassName="animate-fadeIn"
-          renderActions={(registro) => (
-            <div className="d-flex gap-2 justify-content-end">
-              <button className="btn btn-sm btn-success shadow-sm" type="button" title="Editar registro" onClick={() => handleEditClick(registro.id_registro)}>
-                <i className="bi bi-pencil-square"></i>
-              </button>
-            </div>
-          )}
+          renderActions={(registro) => {
+            // --- LÓGICA DEL TICKET: Verificar si la fecha del registro es de hoy ---
+            const fechaRegistro = registro.fecha ? registro.fecha.slice(0, 10) : "";
+            const isToday = fechaRegistro === todayStr;
+
+            return (
+              <div className="d-flex gap-2 justify-content-end">
+                {isToday ? (
+                  <button className="btn btn-sm btn-success shadow-sm" type="button" title="Editar registro de hoy" onClick={() => handleEditClick(registro.id_registro)}>
+                    <i className="bi bi-pencil-square"></i>
+                  </button>
+                ) : (
+                  // Si no es de hoy, mostramos un ícono bloqueado o atenuado (OPCIONAL)
+                  // También podrías simplemente retornar null para no mostrar ningún botón.
+                  <button className="btn btn-sm btn-light shadow-sm text-muted" type="button" title="Solo se pueden editar registros del día actual" disabled>
+                    <i className="bi bi-lock-fill"></i>
+                  </button>
+                )}
+              </div>
+            );
+          }}
         />
       </div>
 
