@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { createProyecto, updateProyecto, getProyectoById } from "../../services/proyectoService";
 import { getServicios } from "../../services/servicioService";
 import { getUsuarios } from "../../services/usuarioService";
+import { notifySuccess, notifyError } from "../../utils/notify"; // <-- 1. IMPORTAMOS LAS NOTIFICACIONES
 
 const EMPTY = {
   nombre: "", 
@@ -9,7 +10,7 @@ const EMPTY = {
   id_servicio: "",
   id_lider: "",
   presupuesto: "", 
-  margen: "0", // Inicializamos el margen por defecto en 0
+  margen: "0", 
   fecha_inicio: "", 
   fecha_fin_estimada: "",
   empleados_ids: [],
@@ -17,10 +18,12 @@ const EMPTY = {
 
 const ProyectoForm = ({ proyectoId, onSaved, onCancel }) => {
   const [form, setForm] = useState(EMPTY);
+  const [originalForm, setOriginalForm] = useState(EMPTY); 
   const [servicios, setServicios] = useState([]);
   const [lideres, setLideres] = useState([]);
   const [empleados, setEmpleados] = useState([]);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState(""); 
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -38,7 +41,10 @@ const ProyectoForm = ({ proyectoId, onSaved, onCancel }) => {
           setEmpleados(users.filter((u) => u.rol === "empleado"));
         }
       })
-      .catch(() => setError("Error al cargar datos iniciales."));
+      .catch(() => {
+        setError("Error al cargar datos iniciales.");
+        notifyError("Error al cargar datos iniciales.");
+      });
   }, []);
 
   useEffect(() => {
@@ -47,28 +53,33 @@ const ProyectoForm = ({ proyectoId, onSaved, onCancel }) => {
       .then((res) => {
         if (res?.success) {
           const p = res.data;
-          setForm({
+          const loadedForm = {
             ...EMPTY,
             nombre: p.nombre || "",
             descripcion: p.descripcion || "",
             id_servicio: p.id_servicio || "",
             id_lider: p.id_lider || "",
             presupuesto: p.presupuesto || "",
-            margen: p.margen !== undefined && p.margen !== null ? String(p.margen) : "0", // Mapeamos el valor desde el backend
+            margen: p.margen !== undefined && p.margen !== null ? String(p.margen) : "0",
             fecha_inicio: p.fecha_inicio?.slice(0, 10) || "",
             fecha_fin_estimada: p.fecha_fin_estimada?.slice(0, 10) || "",
             empleados_ids: (p.empleados || []).map((e) => e.id_usuario),
-          });
+          };
+          
+          setForm(loadedForm);
+          setOriginalForm(loadedForm); 
         }
       });
   }, [proyectoId]);
 
   const handleChange = (e) => {
+    setError(""); 
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const toggleEmpleado = (id) => {
+    setError(""); 
     setForm((prev) => {
       const ids = prev.empleados_ids.includes(id)
         ? prev.empleados_ids.filter((x) => x !== id)
@@ -80,19 +91,29 @@ const ProyectoForm = ({ proyectoId, onSaved, onCancel }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setSuccess(""); 
+
+    if (proyectoId) {
+      const isUnchanged = JSON.stringify(form) === JSON.stringify(originalForm);
+      if (isUnchanged) {
+        setSuccess("No se realizaron cambios.");
+        notifySuccess("No se realizaron cambios."); // <-- 2. NOTIFICACIÓN FLOTANTE (Sin Cambios)
+        setTimeout(() => onSaved?.(), 1000); 
+        return; 
+      }
+    }
 
     const nombre = form.nombre.trim();
     const descripcion = form.descripcion.trim();
 
+    // Validaciones
     if (nombre.length < 3 || nombre.length > 100) return setError("El nombre debe tener entre 3 y 100 caracteres.");
-    //if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/.test(nombre)) return setError("El nombre solo debe contener letras y espacios.");
     if (descripcion && (descripcion.length < 3 || descripcion.length > 500)) return setError("La descripción debe tener entre 3 y 500 caracteres.");
     if (descripcion && !/^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/.test(descripcion)) return setError("La descripción solo debe contener letras y espacios.");
     if (!form.id_servicio) return setError("Selecciona un servicio.");
     if (!form.id_lider) return setError("Selecciona un líder responsable.");
     if (!form.presupuesto || Number(form.presupuesto) < 1) return setError("El presupuesto debe ser mayor o igual a 1.");
     
-    // Validación estricta del margen (% de ganancia) para el frontend
     const margenNum = Number(form.margen);
     if (form.margen === "" || isNaN(margenNum) || margenNum < 0 || margenNum > 100) {
       return setError("El margen (% ganancia) debe ser un número entre 0 y 100.");
@@ -113,7 +134,7 @@ const ProyectoForm = ({ proyectoId, onSaved, onCancel }) => {
       id_servicio: Number(form.id_servicio),
       id_lider: Number(form.id_lider),
       presupuesto: Number(form.presupuesto),
-      margen: margenNum, // Añadimos el valor numérico al payload
+      margen: margenNum,
       fecha_inicio: form.fecha_inicio,
       fecha_fin_estimada: form.fecha_fin_estimada,
       empleados: form.empleados_ids.map(Number),
@@ -123,10 +144,21 @@ const ProyectoForm = ({ proyectoId, onSaved, onCancel }) => {
       const res = proyectoId
         ? await updateProyecto(proyectoId, payload)
         : await createProyecto(payload);
-      if (res?.success) onSaved?.();
-      else setError(res?.message || "Error al guardar.");
+        
+      if (res?.success) {
+        const successMsg = proyectoId ? "Proyecto actualizado correctamente." : "Proyecto creado correctamente.";
+        setSuccess(successMsg);
+        notifySuccess(successMsg); // <-- 3. NOTIFICACIÓN FLOTANTE (Éxito)
+        setTimeout(() => onSaved?.(), 1000);
+      } else {
+        const errorMsg = res?.message || "Error al guardar.";
+        setError(errorMsg);
+        notifyError(errorMsg); // <-- 4. NOTIFICACIÓN FLOTANTE (Error)
+      }
     } catch (err) {
-      setError(err.response?.data?.message || "Error en el servidor.");
+      const catchMsg = err.response?.data?.message || "Error en el servidor.";
+      setError(catchMsg);
+      notifyError(catchMsg); // <-- 5. NOTIFICACIÓN FLOTANTE (Error del servidor)
     } finally {
       setLoading(false);
     }
@@ -145,11 +177,18 @@ const ProyectoForm = ({ proyectoId, onSaved, onCancel }) => {
           </div>
         )}
 
+        {/* ALERTA DE ÉXITO / SIN CAMBIOS */}
+        {success && (
+          <div className="alert alert-success py-2 small rounded-3 mb-3 animate-fadeIn">
+            <i className="bi bi-check-circle-fill me-2"></i>{success}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit}>
           <div className="row g-3">
             <div className="col-12 col-sm-6">
               <label className="form-label fw-semibold small">Nombre del proyecto *</label>
-              <input type="text" name="nombre" value={form.nombre} onChange={handleChange} className="form-control" minLength={3} maxLength={100} required />
+              <input type="text" name="nombre" value={form.nombre} onChange={handleChange} className="form-control" minLength={3} maxLength={100} required disabled={loading || !!success} />
             </div>
 
             <div className="col-12">
@@ -161,12 +200,13 @@ const ProyectoForm = ({ proyectoId, onSaved, onCancel }) => {
                 className="form-control"
                 rows={3}
                 maxLength={500}
+                disabled={loading || !!success}
               />
             </div>
 
             <div className="col-12 col-sm-6">
               <label className="form-label fw-semibold small">Servicio *</label>
-              <select name="id_servicio" value={form.id_servicio} onChange={handleChange} className="form-select" required>
+              <select name="id_servicio" value={form.id_servicio} onChange={handleChange} className="form-select" required disabled={loading || !!success}>
                 <option value="">Selecciona servicio</option>
                 {servicios.map(s => <option key={s.id_servicio} value={s.id_servicio}>{s.nombre}</option>)}
               </select>
@@ -174,7 +214,7 @@ const ProyectoForm = ({ proyectoId, onSaved, onCancel }) => {
 
             <div className="col-12 col-sm-6">
               <label className="form-label fw-semibold small">Líder responsable *</label>
-              <select name="id_lider" value={form.id_lider} onChange={handleChange} className="form-select" required>
+              <select name="id_lider" value={form.id_lider} onChange={handleChange} className="form-select" required disabled={loading || !!success}>
                 <option value="">Selecciona un líder</option>
                 {lideres.map(l => <option key={l.id_usuario} value={l.id_usuario}>{l.nombre}</option>)}
               </select>
@@ -182,25 +222,24 @@ const ProyectoForm = ({ proyectoId, onSaved, onCancel }) => {
 
             <div className="col-6 col-sm-3">
               <label className="form-label fw-semibold small">Presupuesto *</label>
-              <input type="number" name="presupuesto" value={form.presupuesto} onChange={handleChange} className="form-control" min="1" step="0.01" placeholder="0.00" required />
+              <input type="number" name="presupuesto" value={form.presupuesto} onChange={handleChange} className="form-control" min="1" step="0.01" placeholder="0.00" required disabled={loading || !!success} />
             </div>
 
-            {/* INPUT DE MARGEN (% GANANCIA) */}
             <div className="col-6 col-sm-3">
               <label className="form-label fw-semibold small">Margen (% ganancia) *</label>
               <div className="input-group">
-                <input type="number" name="margen" value={form.margen} onChange={handleChange} className="form-control" min="0" max="100" step="0.01" placeholder="0.00" required />
+                <input type="number" name="margen" value={form.margen} onChange={handleChange} className="form-control" min="0" max="100" step="0.01" placeholder="0.00" required disabled={loading || !!success} />
                 <span className="input-group-text small">%</span>
               </div>
             </div>
 
             <div className="col-12 col-sm-6">
               <label className="form-label fw-semibold small">Fecha inicio *</label>
-              <input type="date" name="fecha_inicio" value={form.fecha_inicio} onChange={handleChange} className="form-control" required />
+              <input type="date" name="fecha_inicio" value={form.fecha_inicio} onChange={handleChange} className="form-control" required disabled={loading || !!success} />
             </div>
             <div className="col-12 col-sm-6">
               <label className="form-label fw-semibold small">Fecha fin estimada *</label>
-              <input type="date" name="fecha_fin_estimada" value={form.fecha_fin_estimada} onChange={handleChange} className="form-control" required />
+              <input type="date" name="fecha_fin_estimada" value={form.fecha_fin_estimada} onChange={handleChange} className="form-control" required disabled={loading || !!success} />
             </div>
 
             <div className="col-12">
@@ -208,7 +247,7 @@ const ProyectoForm = ({ proyectoId, onSaved, onCancel }) => {
                 <span>Asignar Equipo (Empleados)</span>
                 <span className="text-muted fw-normal">{form.empleados_ids.length} seleccionados</span>
               </label>
-              <div className="border rounded-3 p-2 bg-light" style={{ maxHeight: 150, overflowY: "auto" }}>
+              <div className="border rounded-3 p-2 bg-light" style={{ maxHeight: 150, overflowY: "auto", pointerEvents: (loading || !!success) ? "none" : "auto", opacity: (loading || !!success) ? 0.6 : 1 }}>
                 {empleados.map(u => (
                   <div key={u.id_usuario} 
                        className={`d-flex align-items-center p-2 mb-1 rounded-2 pointer ${form.empleados_ids.includes(u.id_usuario) ? 'bg-white shadow-sm' : ''}`}
@@ -225,9 +264,17 @@ const ProyectoForm = ({ proyectoId, onSaved, onCancel }) => {
           </div>
 
           <div className="d-flex gap-2 mt-4">
-            <button type="button" className="btn btn-light fw-semibold px-4" onClick={onCancel}>Cancelar</button>
-            <button type="submit" className="btn btn-primary flex-fill fw-bold" disabled={loading}>
-              {loading ? "Guardando..." : proyectoId ? "Actualizar Proyecto" : "Crear Proyecto"}
+            <button type="button" className="btn btn-light fw-semibold px-4" onClick={onCancel} disabled={loading || !!success}>Cancelar</button>
+            <button type="submit" className="btn btn-primary flex-fill fw-bold" disabled={loading || !!success}>
+              {loading ? (
+                <><span className="spinner-border spinner-border-sm me-2"></span>Guardando...</>
+              ) : success ? (
+                <><i className="bi bi-check-lg me-2"></i>Guardado</>
+              ) : proyectoId ? (
+                "Actualizar Proyecto"
+              ) : (
+                "Crear Proyecto"
+              )}
             </button>
           </div>
         </form>

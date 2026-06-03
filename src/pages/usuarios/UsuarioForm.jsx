@@ -58,7 +58,7 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
   const [form, setForm] = useState(() => buildForm(usuario));
   const [originalForm, setOriginalForm] = useState(() => buildForm(usuario));
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
+  const [success, setSuccess] = useState(""); // <-- Cambiado de false a "" (string) para mensajes dinámicos
   const [loading, setLoading] = useState(false);
   const [loadingDetalle, setLoadingDetalle] = useState(false);
   const [detalleError, setDetalleError] = useState("");
@@ -211,7 +211,7 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    setSuccess(false);
+    setSuccess(""); // <-- Reiniciamos el string de éxito
 
     const validationError = validate();
     if (validationError) {
@@ -219,6 +219,18 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
       notifyError(validationError);
       return;
     }
+
+    // --- CORRECCIÓN DEL BUG: VALIDAR SI HUBO CAMBIOS REALES ANTES DE GUARDAR ---
+    if (isEdit) {
+      const isUnchanged = JSON.stringify(form) === JSON.stringify(originalForm);
+      if (isUnchanged) {
+        setSuccess("Sin cambios realizados.");
+        notifySuccess("Sin cambios realizados.");
+        setTimeout(() => onCreated?.(), 1000); // Pausa para que el usuario lea el mensaje
+        return; // Detenemos la ejecución
+      }
+    }
+    // ---------------------------------------------------------------------------
 
     setLoading(true);
     try {
@@ -232,10 +244,10 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
         response = await createUser(buildCreatePayload());
       }
 
-      const msg = response?.message || (isEdit ? "Usuario actualizado correctamente" : "Usuario creado correctamente");
-      setSuccess(true);
+      const msg = response?.message || (isEdit ? "¡Usuario actualizado!" : "¡Usuario creado exitosamente!");
+      setSuccess(msg);
       notifySuccess(msg);
-      setTimeout(() => onCreated?.(), 700);
+      setTimeout(() => onCreated?.(), 1000); // Pausa para que el usuario lea el mensaje
     } catch (err) {
       const msg = getApiMessage(err, "Error al guardar el usuario.");
       setError(msg);
@@ -260,7 +272,8 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
           <button type="button"
             className="btn btn-sm btn-light rounded-circle p-1 lh-1 d-flex align-items-center justify-content-center"
             style={{ width: 30, height: 30 }}
-            onClick={onCancel}>
+            onClick={onCancel}
+            disabled={loading || !!success}> {/* <-- Bloqueado mientras hay mensaje de éxito */}
             <i className="bi bi-x-lg" style={{ fontSize: 12 }}></i>
           </button>
         </div>
@@ -281,10 +294,11 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
             <i className="bi bi-exclamation-circle-fill me-2"></i>{error}
           </div>
         )}
+        {/* Renderizado dinámico del mensaje de éxito/sin cambios */}
         {success && (
-          <div className="alert alert-success d-flex align-items-center py-2 small rounded-3 mb-3">
+          <div className="alert alert-success d-flex align-items-center py-2 small rounded-3 mb-3 animate-fadeIn">
             <i className="bi bi-check-circle-fill me-2"></i>
-            {isEdit ? "¡Usuario actualizado!" : "¡Usuario creado exitosamente!"}
+            {success}
           </div>
         )}
 
@@ -293,11 +307,11 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
             <div className="col-12 col-sm-6">
               <label className="form-label fw-semibold small">Nombre completo</label>
               <input type="text" name="nombre" value={form.nombre} onChange={handleChange}
-                className="form-control" placeholder="Ej: Juan Pérez" required disabled={loadingDetalle} />
+                className="form-control" placeholder="Ej: Juan Pérez" required disabled={loadingDetalle || !!success} />
             </div>
             <div className="col-12 col-sm-6">
               <label className="form-label fw-semibold small">Rol</label>
-              <select name="rol" value={form.rol} onChange={handleChange} className="form-select" required disabled={loadingDetalle}>
+              <select name="rol" value={form.rol} onChange={handleChange} className="form-select" required disabled={loadingDetalle || !!success}>
                 <option value="lider">Líder de equipo</option>
                 <option value="empleado">Empleado</option>
               </select>
@@ -305,7 +319,7 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
             <div className="col-12 col-sm-6">
               <label className="form-label fw-semibold small">Correo electrónico</label>
               <input type="email" name="email" value={form.email} onChange={handleChange}
-                className="form-control" placeholder="usuario@empresa.com" required disabled={loadingDetalle} />
+                className="form-control" placeholder="usuario@empresa.com" required disabled={loadingDetalle || !!success} />
             </div>
             <div className="col-12 col-sm-6">
               <label className="form-label fw-semibold small">
@@ -320,9 +334,9 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
                   className="form-control"
                   placeholder={isEdit ? "Nueva contraseña (opcional)" : "Ej: MiPass123!"}
                   required={!isEdit}
-                  disabled={loadingDetalle}
+                  disabled={loadingDetalle || !!success}
                 />
-                <button className="btn btn-outline-secondary" type="button" onClick={() => setShowPassword(!showPassword)}>
+                <button className="btn btn-outline-secondary" type="button" onClick={() => setShowPassword(!showPassword)} disabled={!!success}>
                   <i className={`bi ${showPassword ? "bi-eye-slash" : "bi-eye"}`}></i>
                 </button>
               </div>
@@ -348,7 +362,7 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
                         min={isEdit ? "0.5" : "0.01"}
                         max="999999.99"
                         step="0.01"
-                        disabled={loadingDetalle}
+                        disabled={loadingDetalle || !!success}
                       />
                     </div>
                     <div className="col-12 col-sm-4">
@@ -358,7 +372,7 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
                         value={form.tipo_pago}
                         onChange={handleChange}
                         className="form-select form-select-sm"
-                        disabled={loadingDetalle}
+                        disabled={loadingDetalle || !!success}
                       >
                         <option value="mensual">Mensual</option>
                         <option value="por_hora">Por hora</option>
@@ -377,7 +391,7 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
                           min="1"
                           max="320"
                           step="1"
-                          disabled={loadingDetalle}
+                          disabled={loadingDetalle || !!success}
                         />
                       </div>
                     )}
@@ -393,14 +407,14 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
           </div>
 
           <div className="d-flex gap-2 mt-4">
-            <button type="button" className="btn btn-light fw-semibold px-4" onClick={onCancel} disabled={loading}>
+            <button type="button" className="btn btn-light fw-semibold px-4" onClick={onCancel} disabled={loading || !!success}>
               Cancelar
             </button>
-            <button type="submit" className="btn btn-primary flex-fill" disabled={loading || loadingDetalle || success}>
+            <button type="submit" className="btn btn-primary flex-fill" disabled={loading || loadingDetalle || !!success}>
               {loading
                 ? <><span className="spinner-border spinner-border-sm me-2"></span>{isEdit ? "Guardando..." : "Creando..."}</>
                 : success
-                  ? <><i className="bi bi-check-lg me-2"></i>{isEdit ? "Guardado" : "Creado"}</>
+                  ? <><i className="bi bi-check-lg me-2"></i>Guardado</>
                   : isEdit
                     ? <><i className="bi bi-check-lg me-2"></i>Guardar cambios</>
                     : <><i className="bi bi-person-plus-fill me-2"></i>Crear usuario</>}
