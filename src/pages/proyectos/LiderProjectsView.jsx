@@ -132,7 +132,8 @@ const LiderProjectsView = () => {
     {
       header: "Proyecto",
       render: (p) => {
-        const active = isProyectoActivo(p);
+        // Un proyecto está activo si la función dice que lo está Y además NO tiene fecha_fin_real
+        const active = isProyectoActivo(p) && !p.fecha_fin_real;
         return (
           <div className="d-flex align-items-center gap-2">
             <div className="rounded-3 d-flex align-items-center justify-content-center"
@@ -181,7 +182,7 @@ const LiderProjectsView = () => {
     {
       header: "Fecha fin real",
       cellClassName: "text-muted small",
-      render: (p) => p.fecha_fin_real ? <span className="text-success">{formatShortDate(p.fecha_fin_real)}</span> : "—",
+      render: (p) => p.fecha_fin_real ? <span className="text-success fw-semibold"><i className="bi bi-check-circle me-1"></i>{formatShortDate(p.fecha_fin_real)}</span> : "—",
     },
     { header: "Servicio", cellClassName: "text-muted small", render: (p) => getServicioNombre(p) },
   ];
@@ -199,7 +200,6 @@ const LiderProjectsView = () => {
   return (
     <Layout>
       <div className="animate-fadeInUp">
-        {/* ... Header y Stats se mantienen igual ... */}
         <div className="page-header d-flex justify-content-between align-items-start flex-wrap gap-3">
           <div>
             <h2 className="fw-bold mb-1">Proyectos que lidero</h2>
@@ -208,8 +208,6 @@ const LiderProjectsView = () => {
             </p>
           </div>
         </div>
-
-        {/* ... Stats Block ... */}
 
         <DataTable
           columns={columns}
@@ -224,13 +222,17 @@ const LiderProjectsView = () => {
           rowClassName="animate-fadeIn"
           rowStyle={{ cursor: "pointer" }}
           renderActions={(p) => {
-            const active = isProyectoActivo(p);
+            // --- LÓGICA DEL TICKET: Un proyecto se puede finalizar SOLO si NO tiene fecha de fin real ---
+            // Así evitamos que el botón salga en proyectos que ya fueron finalizados
+            const canFinish = isProyectoActivo(p) && !p.fecha_fin_real;
+            
             return (
               <div className="d-flex gap-2 justify-content-end">
                 <button className="btn btn-sm btn-primary shadow-sm" title="Fases" onClick={() => setContentModal({ type: "fases", proyecto: p })}>
                   <i className="bi bi-layers"></i>
                 </button>
-                {active && (
+                
+                {canFinish ? (
                   <button
                     className="btn btn-sm btn-danger shadow-sm"
                     title="Finalizar Proyecto"
@@ -240,6 +242,11 @@ const LiderProjectsView = () => {
                     }}
                   >
                     <i className="bi bi-check-circle-fill"></i>
+                  </button>
+                ) : (
+                  // OPCIONAL: Mostrar un check deshabilitado si ya está finalizado para que el usuario entienda
+                  <button className="btn btn-sm btn-light shadow-sm text-success" title="Proyecto Finalizado" disabled>
+                    <i className="bi bi-check-all"></i>
                   </button>
                 )}
               </div>
@@ -262,6 +269,7 @@ const LiderProjectsView = () => {
         horasError={horasError}
         onClose={() => setSelected(null)}
       />
+      
       {contentModal && (
         <ProjectContentModal onClose={() => setContentModal(null)}>
           {contentModal.type === "fases" && (
@@ -276,6 +284,7 @@ const LiderProjectsView = () => {
           )}
         </ProjectContentModal>    
       )}
+      
       {showFinalizarModal && (
         <div className="modal-overlay" onClick={() => setShowFinalizarModal(false)}>
           <div className="modal-card p-0 animate-scaleIn" style={{ maxWidth: 450 }} onClick={e => e.stopPropagation()}>
@@ -312,6 +321,5 @@ const LiderProjectsView = () => {
     </Layout>
   );
 };
-
 
 export default LiderProjectsView;
