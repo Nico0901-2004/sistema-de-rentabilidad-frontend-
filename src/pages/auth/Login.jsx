@@ -238,7 +238,13 @@ const Login = () => {
       } else if (!err.response || status >= 500) {
         setError("Error de servidor");
       } else {
-        setError(err.response?.data?.message || "Error de servidor");
+        // --- AQUÍ ESTÁ LA CORRECCIÓN DE LA VALIDACIÓN ---
+        // Leemos si existe un array de errores (express-validator) o el mensaje por defecto
+        const validationMessage = err.response?.data?.errors?.[0]?.msg;
+        const apiMessage = err.response?.data?.message;
+        
+        // Prioridad: 1. Error de validación (ej. Longitud de password), 2. Mensaje de API, 3. Fallback
+        setError(validationMessage || apiMessage || "Error de servidor");
       }
     } finally {
       setLoading(false);
