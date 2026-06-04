@@ -1,20 +1,23 @@
-const { test } = require('@playwright/test');
-const { loginAs } = require('../helpers/auth');
+const { test } = require('../fixtures/e2eTest');
+const { storageStatePath } = require('../helpers/authState');
 const { AdminPropietariosPage } = require('../page-objects/AdminPropietariosPage');
 
-test.describe('CP-HU11-1-E2E - Flujo completo visualizacion propietarios', () => {
+test.describe.serial('CP-HU11-1-E2E - Flujo completo visualizacion propietarios', () => {
+  test.use({ storageState: storageStatePath('admin') });
+
   test('muestra correctamente los propietarios para un admin valido', async ({ page }) => {
     const propietariosPage = new AdminPropietariosPage(page);
 
-    await loginAs(page, 'admin');
+    await page.goto('/admin-dashboard');
     await propietariosPage.expectAdminHome();
 
     const ownersResponseBody = await propietariosPage.gotoFromSidebar();
     const owners = propietariosPage.getOwnersFromApi(ownersResponseBody);
+    const seedOwner = propietariosPage.getOwnerByEmailFromApi(owners, 'qa_propietario@test.com');
 
-    propietariosPage.expectOwnerFieldsAreValid(owners);
+    propietariosPage.expectOwnerFieldsAreValid([seedOwner]);
     await propietariosPage.expectLoaded();
-    await propietariosPage.expectOwnersFromApiVisible(owners);
-    await propietariosPage.searchFirstOwnerFromApi(owners);
+    await propietariosPage.searchOwnerByEmail(seedOwner.email);
+    await propietariosPage.expectOwnerRowMatchesApi(seedOwner);
   });
 });

@@ -1,4 +1,4 @@
-const { test } = require('@playwright/test');
+const { test } = require('../fixtures/e2eTest');
 const { SesionPage } = require('../page-objects/SesionPage');
 
 const PRIVATE_ROUTES = [
@@ -7,7 +7,7 @@ const PRIVATE_ROUTES = [
   '/proyectos/1/fases', '/proyectos/1/notas',
 ];
 
-test.describe('CP-HU1-9-E2E - Proteccion integral de rutas', () => {
+test.describe.serial('CP-HU1-9-E2E - Proteccion integral de rutas', () => {
   test('impide acceder manualmente a modulos privados sin sesion', async ({ page }) => {
     const sesionPage = new SesionPage(page);
 

@@ -14,6 +14,7 @@
 /playwright-report/
 /blob-report/
 /.playwright/
+/.auth/
 
 # Generated media from test runs
 **/screenshots/

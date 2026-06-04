@@ -13,9 +13,18 @@ const getProfileEditName = (currentName = '') => {
 
 const toIsoDate = (date) => date.toISOString().slice(0, 10);
 
+const getUniqueSuffix = (testInfo) => {
+  const workerIndex = testInfo?.workerIndex ?? 'w0';
+  const retry = testInfo?.retry ?? 0;
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).slice(2, 7);
+
+  return `${workerIndex}-${retry}-${timestamp}-${random}`;
+};
+
 const numberToLetters = (value) => {
   const letters = 'abcdefghijklmnopqrstuvwxyz';
-  let number = Number(value);
+  let number = Math.abs(Number(value)) || 0;
   let result = '';
 
   do {
@@ -26,8 +35,22 @@ const numberToLetters = (value) => {
   return result;
 };
 
-const getProjectRegistrationData = () => {
+const getLettersOnlySuffix = (testInfo) => {
+  const workerIndex = testInfo?.workerIndex ?? 0;
+  const retry = testInfo?.retry ?? 0;
   const timestamp = Date.now();
+  const random = Math.floor(Math.random() * 100000);
+
+  return [
+    numberToLetters(workerIndex),
+    numberToLetters(retry),
+    numberToLetters(timestamp),
+    numberToLetters(random),
+  ].join(' ');
+};
+
+const getProjectRegistrationData = (testInfo) => {
+  const suffix = getUniqueSuffix(testInfo);
   const startDate = new Date();
 
   startDate.setDate(startDate.getDate() + 1);
@@ -35,7 +58,7 @@ const getProjectRegistrationData = () => {
   endDate.setDate(endDate.getDate() + 30);
 
   return {
-    nombre: `Proyecto QA Registro ${timestamp}`,
+    nombre: `Proyecto QA Registro #${suffix} / E2E`,
     descripcion: 'Proyecto automatizado de prueba',
     presupuesto: '15000',
     margen: '20',
@@ -44,19 +67,20 @@ const getProjectRegistrationData = () => {
   };
 };
 
-const getOwnerRegistrationData = () => {
-  const timestamp = Date.now();
-  const suffix = numberToLetters(timestamp);
+const getOwnerRegistrationData = (testInfo) => {
+  const suffix = getUniqueSuffix(testInfo);
+  const nameSuffix = getLettersOnlySuffix(testInfo);
+  const emailSuffix = suffix.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
 
   return {
-    nombre: `Propietario Prueba ${suffix}`,
-    email: `qa_propietario_${timestamp}@test.com`,
+    nombre: `Propietario Prueba ${nameSuffix}`,
+    email: `qa_propietario_${emailSuffix}@test.com`,
     password: 'Password123*',
   };
 };
 
-const getTemporaryCompanyData = () => {
-  const suffix = numberToLetters(Date.now());
+const getTemporaryCompanyData = (testInfo) => {
+  const suffix = getLettersOnlySuffix(testInfo);
 
   return {
     nombre: `Empresa Temporal ${suffix}`,
@@ -64,6 +88,8 @@ const getTemporaryCompanyData = () => {
 };
 
 module.exports = {
+  getUniqueSuffix,
+  getLettersOnlySuffix,
   getProfileEditName,
   getProjectRegistrationData,
   getOwnerRegistrationData,

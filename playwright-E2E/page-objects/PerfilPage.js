@@ -35,9 +35,15 @@ class PerfilPage {
   }
 
   async updateName(name) {
+    const updateResponse = this.page.waitForResponse(
+      (response) => response.url().includes('/api/usuarios/') && response.request().method() === 'PUT'
+    );
+
     await this.nameInput.fill(name);
     await this.passwordInput.fill('');
     await this.saveButton.click();
+
+    expect((await updateResponse).ok()).toBeTruthy();
   }
 
   async expectProfileUpdated(name) {

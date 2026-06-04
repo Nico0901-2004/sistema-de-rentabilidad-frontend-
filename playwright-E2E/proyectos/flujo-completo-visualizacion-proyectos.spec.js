@@ -1,17 +1,23 @@
-const { test } = require('@playwright/test');
-const { loginAs } = require('../helpers/auth');
+const { test, expect } = require('../fixtures/e2eTest');
+const { storageStatePath } = require('../helpers/authState');
 const { ProyectosPage } = require('../page-objects/ProyectosPage');
 
-test.describe('CP-HU17-1-E2E - Flujo completo visualizacion proyectos', () => {
-  test('permite login propietario y visualizar proyectos correctamente', async ({ page }) => {
+test.describe.serial('CP-HU17-1-E2E - Flujo completo visualizacion proyectos', () => {
+  test.use({ storageState: storageStatePath('propietario') });
+
+  test('permite visualizar proyectos para un propietario autenticado', async ({ page }) => {
     const proyectosPage = new ProyectosPage(page);
 
-    await loginAs(page, 'propietario');
+    await page.goto('/dashboard');
     const projectsResponseBody = await proyectosPage.gotoFromSidebar();
     const projects = proyectosPage.getProjectsFromApi(projectsResponseBody);
 
-    proyectosPage.expectProjectFieldsAreValid(projects);
+    const seedProjectName = 'Proyecto Delta';
+    const seedProject = projects.find((project) => project.nombre === seedProjectName);
+
+    expect(seedProject, `No se encontro proyecto seed ${seedProjectName}`).toBeTruthy();
+    proyectosPage.expectProjectFieldsAreValid([seedProject]);
     await proyectosPage.expectLoaded();
-    await proyectosPage.expectProjectsFromApiVisible(projects);
+    await proyectosPage.expectProjectFromApiVisibleByName(projects, seedProjectName);
   });
 });

@@ -1,34 +1,32 @@
-const { test } = require('@playwright/test');
-const { loginAs } = require('../helpers/auth');
+const { test } = require('../fixtures/e2eTest');
+const { storageStatePath } = require('../helpers/authState');
 const { getProfileEditName } = require('../helpers/testDataFactory');
+const { resetQaUserProfile } = require('../helpers/businessDataGuards');
 const { PerfilPage } = require('../page-objects/PerfilPage');
 
-test.describe('CP-HU2-1-E2E - Flujo completo edicion perfil', () => {
+test.describe.serial('CP-HU2-1-E2E - Flujo completo edicion perfil', () => {
+  test.use({ storageState: storageStatePath('empleado') });
+
   test('permite editar el perfil con datos validos y ver los cambios en el sistema', async ({ page }) => {
     const perfilPage = new PerfilPage(page);
     let originalName;
     let updatedName;
-    let shouldRestoreName = false;
-
-    await loginAs(page, 'empleado');
-    await perfilPage.goto();
-    await perfilPage.startEditing();
-
-    originalName = await perfilPage.getCurrentNameFromForm();
-    updatedName = getProfileEditName(originalName);
 
     try {
+      await resetQaUserProfile('empleado');
+
+      await perfilPage.goto();
+      await perfilPage.startEditing();
+
+      originalName = await perfilPage.getCurrentNameFromForm();
+      updatedName = getProfileEditName(originalName);
+
       await perfilPage.updateName(updatedName);
-      shouldRestoreName = true;
 
       await perfilPage.expectProfileUpdated(updatedName);
       await perfilPage.reloadAndExpectName(updatedName);
     } finally {
-      if (shouldRestoreName && originalName && updatedName !== originalName) {
-        await perfilPage.startEditing();
-        await perfilPage.updateName(originalName);
-        await perfilPage.expectProfileUpdated(originalName);
-      }
+      await resetQaUserProfile('empleado');
     }
   });
 });

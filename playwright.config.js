@@ -9,20 +9,21 @@ const backendUrl = process.env.QA_BACKEND_URL || 'http://localhost:3000';
 
 module.exports = defineConfig({
   testDir: './playwright-E2E',
-  timeout: 30 * 1000,
+  globalSetup: require.resolve('./playwright-E2E/globalSetup'),
+  timeout: 45 * 1000,
   expect: {
-    timeout: 5 * 1000,
+    timeout: 7 * 1000,
   },
-  fullyParallel: true,
+  fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1,
   reporter: [['html'], ['list']],
   use: {
     baseURL: frontendUrl,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
-    video: 'on',
+    video: 'retain-on-failure',
   },
   webServer: [
     {

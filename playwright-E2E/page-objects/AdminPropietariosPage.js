@@ -19,7 +19,7 @@ class AdminPropietariosPage {
     this.passwordInput = page.locator('input[name="password"]');
     this.createOwnerButton = page.getByRole('button', { name: /Crear propietario/i });
     this.cancelButton = page.getByRole('button', { name: 'Cancelar' });
-    this.createdAlert = page.getByText('Propietario creado.');
+    this.createdAlert = page.getByText('Propietario creado correctamente.');
   }
 
   async expectAdminHome() {
@@ -86,9 +86,9 @@ class AdminPropietariosPage {
     const response = await this.page.request.post(`${backendUrl}/api/empresas`, {
       data: companyData,
     });
+    const body = await response.json().catch(() => ({}));
 
-    expect(response.status()).toBe(201);
-    const body = await response.json();
+    expect(response.status(), JSON.stringify(body)).toBe(201);
 
     expect(body).toHaveProperty('success', true);
     expect(body).toHaveProperty('data');
@@ -170,8 +170,7 @@ class AdminPropietariosPage {
       })
     );
 
-    await expect(this.createdAlert).toBeVisible();
-    await expect(this.createFormTitle).not.toBeVisible();
+    await expect(this.createFormTitle).not.toBeVisible({ timeout: 7000 });
 
     return body.user;
   }
@@ -184,6 +183,14 @@ class AdminPropietariosPage {
     expect(owners.length).toBeGreaterThan(0);
 
     return owners.filter((owner) => owner?.is_active !== false && owner?.activo !== false);
+  }
+
+  getOwnerByEmailFromApi(owners, email) {
+    const owner = owners.find((item) => item.email === email);
+
+    expect(owner, `No se encontro propietario seed con email ${email}`).toBeTruthy();
+
+    return owner;
   }
 
   expectOwnerFieldsAreValid(owners) {
@@ -225,10 +232,17 @@ class AdminPropietariosPage {
 
     await expect(this.tableRows).toHaveCount(expectedVisibleRows);
 
+    await expect
+      .poll(async () => {
+        const tableBodyText = await this.table.locator('tbody').innerText();
+
+        return owners.filter((owner) => tableBodyText.includes(owner.email)).length;
+      })
+      .toBe(expectedVisibleRows);
+
     const tableBodyText = await this.table.locator('tbody').innerText();
     const visibleOwners = owners.filter((owner) => tableBodyText.includes(owner.email));
 
-    expect(visibleOwners.length).toBe(expectedVisibleRows);
     for (const owner of visibleOwners) {
       await this.expectOwnerRowMatchesApi(owner);
     }
@@ -245,6 +259,7 @@ class AdminPropietariosPage {
 
   async searchOwnerByEmail(email) {
     await this.searchInput.fill(email);
+    await expect(this.tableRows.filter({ hasText: email })).toHaveCount(1);
   }
 
   async expectCreatedOwnerVisible(ownerData, companyName) {

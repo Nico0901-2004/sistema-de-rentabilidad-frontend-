@@ -1,16 +1,19 @@
-const { test } = require('@playwright/test');
-const { loginAs } = require('../helpers/auth');
+const { test } = require('../fixtures/e2eTest');
+const { storageStatePath } = require('../helpers/authState');
 const { getProjectRegistrationData } = require('../helpers/testDataFactory');
+const { deactivateCreatedProject } = require('../helpers/businessDataGuards');
 const { ProyectosPage } = require('../page-objects/ProyectosPage');
 
-test.describe('CP-HU18-1-E2E - Flujo completo registro proyecto', () => {
-  test('permite registrar un proyecto con datos completos', async ({ page }) => {
+test.describe.serial('CP-HU18-1-E2E - Flujo completo registro proyecto', () => {
+  test.use({ storageState: storageStatePath('propietario') });
+
+  test('permite registrar un proyecto con datos completos', async ({ page }, testInfo) => {
     const proyectosPage = new ProyectosPage(page);
-    const projectData = getProjectRegistrationData();
+    const projectData = getProjectRegistrationData(testInfo);
     let createdProject;
 
     try {
-      await loginAs(page, 'propietario');
+      await page.goto('/dashboard');
       await proyectosPage.gotoFromSidebar();
       await proyectosPage.expectLoaded();
 
@@ -21,7 +24,7 @@ test.describe('CP-HU18-1-E2E - Flujo completo registro proyecto', () => {
       await proyectosPage.searchProjectByName(projectData.nombre);
       await proyectosPage.expectCreatedProjectVisible(createdProject);
     } finally {
-      await proyectosPage.cleanupCreatedProjectByApi(createdProject?.id_proyecto);
+      await deactivateCreatedProject(createdProject?.id_proyecto);
     }
   });
 });

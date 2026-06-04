@@ -12,6 +12,7 @@ const HOME_BY_ROLE = {
 };
 
 const LOGIN_LOCKOUT_KEY = 'login_attempts_lockout';
+const LAST_ACTIVITY_KEY = 'last_activity';
 const ACCESS_TOKEN_COOKIE = 'access_token';
 const BACKEND_ENV_PATH = path.resolve(__dirname, '..', '..', '..', 'Sistema-de-Rentabilidad-Backend-', '.env.qa');
 
@@ -155,8 +156,11 @@ class SesionPage {
     await this.expectBackendSessionInvalidated();
   }
 
-  async simulateInactivityTimeout(timeoutMs = 5000) {
-    await this.page.clock.runFor(timeoutMs + 1000);
+  async simulateInactivityTimeout(timeoutMs = 15 * 60 * 1000) {
+    await this.page.evaluate(({ key, timeout }) => {
+      localStorage.setItem(key, String(Date.now() - timeout - 1000));
+    }, { key: LAST_ACTIVITY_KEY, timeout: timeoutMs });
+    await this.page.clock.runFor(31 * 1000);
   }
 
   async expectSessionClosedByInactivity() {
@@ -282,14 +286,10 @@ class SesionPage {
     await this.expectBackendSessionInvalidated();
   }
 
-  async clearBackendFailedLoginState(requestContext, role = 'propietario') {
-    const { backendUrl } = getQaEnv();
-    const { email, password } = this.getCredentialsForRole(role);
-    const response = await requestContext.post(`${backendUrl}/api/auth/login`, {
-      data: { email, password },
-    });
+  async clearBackendFailedLoginState(_requestContext, role = 'propietario') {
+    const { resetLoginGuards } = require('../helpers/loginGuards');
 
-    expect(response.ok()).toBeTruthy();
+    await resetLoginGuards({ roles: [role] });
   }
 
   async expectBackendSessionInvalidated() {

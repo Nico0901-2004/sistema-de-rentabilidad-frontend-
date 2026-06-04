@@ -121,12 +121,36 @@ class ProyectosPage {
     return employeeName;
   }
 
+  async selectOptionByLabel(selectLocator, label, fieldName) {
+    await expect
+      .poll(async () => (
+        selectLocator.locator('option').evaluateAll(
+          (options, expectedLabel) => options.some((option) => option.textContent.trim() === expectedLabel),
+          label
+        )
+      ))
+      .toBeTruthy();
+
+    await selectLocator.selectOption({ label });
+
+    return label;
+  }
+
+  async selectEmployeeByName(employeeName) {
+    const employeeOption = this.page.locator('form').getByText(employeeName, { exact: true });
+
+    await expect(employeeOption).toBeVisible();
+    await employeeOption.click();
+
+    return employeeName;
+  }
+
   async fillCreateForm(projectData) {
     await this.nameInput.fill(projectData.nombre);
     await this.descriptionInput.fill(projectData.descripcion);
-    const service = await this.selectFirstAvailableService();
-    const leader = await this.selectFirstAvailableLeader();
-    const employee = await this.selectFirstAvailableEmployee();
+    const service = await this.selectOptionByLabel(this.serviceSelect, 'Desarrollo Web', 'servicio');
+    const leader = await this.selectOptionByLabel(this.leaderSelect, 'QA Lider', 'lider');
+    const employee = await this.selectEmployeeByName('Primer QA Empleado');
 
     await this.budgetInput.fill(projectData.presupuesto);
     await this.marginInput.fill(projectData.margen);
@@ -214,26 +238,27 @@ class ProyectosPage {
   }
 
   async getVisibleProjectsFromApi(projects) {
-    const tableBodyText = await this.tableBody.innerText();
-    const idPattern = /(^|\s)(#\d+)(\s|$|\.|·|,)/g;
-    const visibleIds = new Set();
+    const visibility = await Promise.all(
+      projects.map(async (project) => ({
+        project,
+        count: await this.rowForProject(project).count(),
+      }))
+    );
 
-    let match;
-    while ((match = idPattern.exec(tableBodyText)) !== null) {
-      visibleIds.add(match[2]);
-    }
-
-    return projects.filter((project) => visibleIds.has(`#${project.id_proyecto}`));
+    return visibility
+      .filter(({ count }) => count > 0)
+      .map(({ project }) => project);
   }
 
   async expectProjectsFromApiVisible(projects) {
     const expectedVisibleRows = Math.min(projects.length, DEFAULT_PAGE_SIZE);
 
     await expect(this.tableRows).toHaveCount(expectedVisibleRows);
+    await expect
+      .poll(async () => (await this.getVisibleProjectsFromApi(projects)).length)
+      .toBe(expectedVisibleRows);
 
     const visibleProjects = await this.getVisibleProjectsFromApi(projects);
-
-    expect(visibleProjects.length).toBe(expectedVisibleRows);
 
     for (const project of visibleProjects) {
       await this.expectProjectRowMatchesApi(project);
@@ -258,6 +283,16 @@ class ProyectosPage {
 
   async searchProjectByName(name) {
     await this.searchInput.fill(name);
+    await expect(this.tableRows.filter({ hasText: name })).toHaveCount(1);
+  }
+
+  async expectProjectFromApiVisibleByName(projects, name) {
+    const project = projects.find((item) => item.nombre === name);
+
+    expect(project, `No se encontro proyecto seed con nombre ${name}`).toBeTruthy();
+
+    await this.searchProjectByName(name);
+    await this.expectProjectRowMatchesApi(project);
   }
 
   async expectCreatedProjectVisible(project) {
