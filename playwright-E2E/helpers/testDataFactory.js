@@ -87,6 +87,33 @@ const getTemporaryCompanyData = (testInfo) => {
   };
 };
 
+const getPhaseData = (testInfo, prefix = 'Fase QA') => {
+  const suffix = getLettersOnlySuffix(testInfo);
+
+  return {
+    nombre: `${prefix} ${suffix}`,
+    horas_estimadas: '12.5',
+  };
+};
+
+const getHourRegistrationData = (testInfo, prefix = 'Horas QA') => {
+  const suffix = getUniqueSuffix(testInfo).replace(/[^a-zA-Z0-9]/g, '').slice(-12);
+
+  return {
+    horas: '0.5',
+    descripcion: `${prefix} ${suffix}`,
+  };
+};
+
+const getMarcajeEmployeeData = (testInfo) => {
+  const suffix = getUniqueSuffix(testInfo).replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+
+  return {
+    nombre: `Empleado Marcaje ${getLettersOnlySuffix(testInfo)}`,
+    email: `qa_marcaje_empleado_${suffix}@test.com`,
+  };
+};
+
 module.exports = {
   getUniqueSuffix,
   getLettersOnlySuffix,
@@ -94,4 +121,7 @@ module.exports = {
   getProjectRegistrationData,
   getOwnerRegistrationData,
   getTemporaryCompanyData,
+  getPhaseData,
+  getHourRegistrationData,
+  getMarcajeEmployeeData,
 };
