@@ -7,12 +7,17 @@
 
 # testing
 /coverage
+/test-results
+/playwright-report
 
 # production
 /build
 
 # misc
 .DS_Store
+.auth/
+.env.qa
+env.qa
 .env.local
 .env.development.local
 .env.test.local
