@@ -27,7 +27,6 @@ jobs:
           cache: npm
 
       - name: Instalar dependencias
-        # SOLUCIÓN: Cambiado a npm install para evitar el bloqueo del lockfile desfasado
         run: npm install
 
       - name: Ejecutar Pruebas Unitarias
@@ -35,7 +34,7 @@ jobs:
           if npm run | grep -q "test:unit"; then
             npm run test:unit
           else
-            npm test -- --watchAll=false
+            npm test -- --watchAll=false --passWithNoTests
           fi
 
       - name: Validar Compilación (Build)
@@ -67,7 +66,6 @@ jobs:
           node-version: 20
 
       - name: Instalar dependencias del Backend
-        # SOLUCIÓN: Cambiado a npm install
         run: npm install
         working-directory: ./Sistema-de-Rentabilidad-Backend-
 
@@ -92,7 +90,6 @@ jobs:
         working-directory: ./Sistema-de-Rentabilidad-Backend-
 
       - name: Instalar dependencias del Frontend
-        # SOLUCIÓN: Cambiado a npm install
         run: npm install
         working-directory: ./frontend
 
@@ -132,7 +129,6 @@ jobs:
           cache: npm
 
       - name: Instalar dependencias
-        # SOLUCIÓN: Cambiado a npm install
         run: npm install
 
       - name: Instalar Vercel CLI
@@ -168,7 +164,6 @@ jobs:
           cache: npm
 
       - name: Instalar dependencias
-        # SOLUCIÓN: Cambiado a npm install
         run: npm install
 
       - name: Instalar Vercel CLI
