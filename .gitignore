@@ -18,6 +18,11 @@
 /.playwright/
 /.auth/
 
+# Lighthouse CI generated artifacts
+/.lighthouseci/
+tests/non-functional/accessibility/reports/*
+!tests/non-functional/accessibility/reports/.gitkeep
+
 # Generated media from test runs
 **/screenshots/
 **/videos/
