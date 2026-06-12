@@ -19,8 +19,22 @@
   },
   "scripts": {
     "start": "react-scripts start",
+    "start:qa": "node start-qa.js",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:vitest": "vitest",
+    "test:unit": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:stable": "playwright test --workers=1",
+    "test:e2e:flake-check": "playwright test --repeat-each=3 --workers=1",
+    "test:e2e:ci": "playwright test --workers=1",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "qa:seed": "npm --prefix ../Sistema-de-Rentabilidad-Backend- run seed:qa",
+    "test:e2e:qa": "npm run qa:seed && playwright test",
+    "test:nf:accessibility": "lhci autorun --config=tests/non-functional/accessibility/lighthouserc.js",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -40,5 +54,15 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "@lhci/cli": "^0.15.1",
+    "@playwright/test": "^1.60.0",
+    "@vitest/coverage-v8": "^4.1.7",
+    "dotenv": "^17.4.2",
+    "dotenv-cli": "^11.0.0",
+    "jsdom": "^29.1.1",
+    "puppeteer": "^25.1.0",
+    "vitest": "^4.1.7"
   }
 }
