@@ -11,6 +11,8 @@ on:
       - main
       - develop
       - qa
+permissions:
+  contents: read
 
 jobs:
   ci-validation:
@@ -46,7 +48,7 @@ jobs:
     name: Pruebas End-to-End (Playwright)
     runs-on: ubuntu-latest
     needs: ci-validation
-    if: github.ref == 'refs/heads/qa' || github.base_ref == 'qa'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/qa'
     steps:
       - name: Descargar Frontend (Directorio actual)
         uses: actions/checkout@v4
@@ -58,7 +60,7 @@ jobs:
         with:
           repository: ${{ github.repository_owner }}/Sistema-de-Rentabilidad-Backend-
           path: Sistema-de-Rentabilidad-Backend-
-          token: ${{ secrets.PAT_GITHUB }}
+          ref: qa
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
@@ -96,10 +98,17 @@ jobs:
       - name: Crear .env.qa del Frontend
         run: |
           cat > .env.qa <<EOF
+          PORT=3001
+          QA_ENV=qa
           REACT_APP_ENV=qa
-          REACT_APP_API_URL=http://localhost:3000
+          REACT_APP_API_URL=http://localhost:3000/api
           QA_FRONTEND_URL=http://localhost:3001
           QA_BACKEND_URL=http://localhost:3000
+          QA_ADMIN_EMAIL=qa_admin@test.com
+          QA_PROPIETARIO_EMAIL=qa_propietario@test.com
+          QA_LIDER_EMAIL=qa_lider@test.com
+          QA_EMPLEADO_EMAIL=qa_empleado1@test.com
+          QA_USER_PASSWORD=Qa123456*
           EOF
         working-directory: ./frontend
 

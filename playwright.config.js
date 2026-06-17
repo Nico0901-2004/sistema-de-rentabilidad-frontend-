@@ -28,7 +28,7 @@ module.exports = defineConfig({
   webServer: [
     {
       command: 'npm --prefix ../Sistema-de-Rentabilidad-Backend- run dev:qa',
-      url: `${backendUrl}/api/auth/me`,
+      url: `${backendUrl}/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 120 * 1000,
     },
