@@ -29,7 +29,7 @@
     "test:e2e": "playwright test",
     "test:e2e:stable": "playwright test --workers=1",
     "test:e2e:flake-check": "playwright test --repeat-each=3 --workers=1",
-    "test:e2e:ci": "npm run qa:seed && playwright test --workers=1",
+    "test:e2e:ci": "node scripts/run-e2e-ci.js",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "qa:seed": "npm --prefix ../Sistema-de-Rentabilidad-Backend- run seed:qa",
