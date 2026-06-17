@@ -109,6 +109,12 @@ class FasesPage {
     const updateResponse = this.page.waitForResponse(
       (response) => response.url().includes('/api/fases/') && response.request().method() === 'PUT'
     );
+    const refreshResponse = this.page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/proyectos/') &&
+        response.url().includes('/fases') &&
+        response.request().method() === 'GET'
+    );
 
     await this.page.getByRole('button', { name: 'Actualizar fase' }).click();
     const response = await updateResponse;
@@ -117,6 +123,7 @@ class FasesPage {
     const body = await response.json();
 
     expect(body).toHaveProperty('success', true);
+    expect((await refreshResponse).ok()).toBeTruthy();
     await expect(this.formTitle).not.toBeVisible();
 
     return body.data;
