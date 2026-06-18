@@ -50,7 +50,11 @@ class MarcajesPage {
     await expect(this.heading).toBeVisible();
     await expect(this.table).toBeVisible();
 
-    return response.json();
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
   }
 
   rowByStatus(status) {
