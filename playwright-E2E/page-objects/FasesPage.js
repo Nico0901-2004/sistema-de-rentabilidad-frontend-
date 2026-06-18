@@ -103,9 +103,11 @@ class FasesPage {
 
     expect(response.ok()).toBeTruthy();
     await expect(this.formTitle).toHaveText(/Editar fase/i);
+    await expect(this.nameInput).toBeVisible();
+    await expect(this.nameInput).toHaveValue(name);
   }
 
-  async submitEditForm() {
+  async submitEditForm(expectedData) {
     const updateResponse = this.page.waitForResponse(
       (response) => response.url().includes('/api/fases/') && response.request().method() === 'PUT'
     );
@@ -123,6 +125,16 @@ class FasesPage {
     const body = await response.json();
 
     expect(body).toHaveProperty('success', true);
+    expect(body).toHaveProperty('data');
+
+    if (expectedData?.nombre !== undefined) {
+      expect(body.data.nombre).toBe(expectedData.nombre);
+    }
+
+    if (expectedData?.horas_estimadas !== undefined) {
+      expect(Number(body.data.horas_estimadas)).toBe(Number(expectedData.horas_estimadas));
+    }
+
     expect((await refreshResponse).ok()).toBeTruthy();
     await expect(this.formTitle).not.toBeVisible();
 
@@ -132,7 +144,7 @@ class FasesPage {
   async editPhaseByName(currentName, data) {
     await this.openEditFormByName(currentName);
     await this.fillForm(data);
-    const phase = await this.submitEditForm();
+    const phase = await this.submitEditForm(data);
     await this.expectPhaseVisible(phase);
 
     return phase;
