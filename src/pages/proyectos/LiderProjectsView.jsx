@@ -7,7 +7,7 @@ import FasesLists from "../fases/FasesLists";
 import { getFasesByProyecto } from "../../services/faseService";
 import { finalizarProyecto, getHorasResumenProyecto, getMisProyectos } from "../../services/proyectoService";
 import { notifyError, notifySuccess } from "../../utils/notify";
-import { formatShortDate, getServicioNombre, getTotalHorasEstimadas, isProyectoActivo, normalizeHorasResumen, normalizeProyectoFases } from "./projectUtils";
+import { EstadoProyectoBadge, canFinishProyecto, formatShortDate, getProyectoEstado, getServicioNombre, getTotalHorasEstimadas, isProyectoActivo, normalizeHorasResumen, normalizeProyectoFases } from "./projectUtils";
 
 const getTodayDateValue = () => {
   const today = new Date();
@@ -132,7 +132,6 @@ const LiderProjectsView = () => {
     {
       header: "Proyecto",
       render: (p) => {
-        // Un proyecto está activo si la función dice que lo está Y además NO tiene fecha_fin_real
         const active = isProyectoActivo(p) && !p.fecha_fin_real;
         return (
           <div className="d-flex align-items-center gap-2">
@@ -142,6 +141,7 @@ const LiderProjectsView = () => {
             </div>
             <div>
               <span className={`fw-semibold d-block ${!active ? "text-muted" : ""}`}>{p.nombre}</span>
+              <EstadoProyectoBadge estado={getProyectoEstado(p)} className="mt-1" />
             </div>
           </div>
         );
@@ -222,9 +222,7 @@ const LiderProjectsView = () => {
           rowClassName="animate-fadeIn"
           rowStyle={{ cursor: "pointer" }}
           renderActions={(p) => {
-            // --- LÓGICA DEL TICKET: Un proyecto se puede finalizar SOLO si NO tiene fecha de fin real ---
-            // Así evitamos que el botón salga en proyectos que ya fueron finalizados
-            const canFinish = isProyectoActivo(p) && !p.fecha_fin_real;
+            const canFinish = canFinishProyecto(p);
             
             return (
               <div className="d-flex gap-2 justify-content-end">
@@ -244,8 +242,7 @@ const LiderProjectsView = () => {
                     <i className="bi bi-check-circle-fill"></i>
                   </button>
                 ) : (
-                  // OPCIONAL: Mostrar un check deshabilitado si ya está finalizado para que el usuario entienda
-                  <button className="btn btn-sm btn-light shadow-sm text-success" title="Proyecto Finalizado" disabled>
+                  <button className="btn btn-sm btn-light shadow-sm text-muted" title="Solo proyectos en ejecución pueden finalizarse" disabled>
                     <i className="bi bi-check-all"></i>
                   </button>
                 )}

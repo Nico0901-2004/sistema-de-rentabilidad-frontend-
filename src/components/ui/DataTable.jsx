@@ -72,7 +72,7 @@ const DataTable = ({
                   </th>
                 ))}
                 {actionRenderer && (
-                  <th className="text-end">
+                  <th className="text-end" style={{ width: 132, minWidth: 132 }}>
                     Acciones
                   </th>
                 )}
@@ -105,7 +105,7 @@ const DataTable = ({
                     ))}
 
                     {actionRenderer && (
-                      <td className="text-end" onClick={(event) => event.stopPropagation()}>
+                      <td className="text-end" style={{ width: 132, minWidth: 132, whiteSpace: "nowrap" }} onClick={(event) => event.stopPropagation()}>
                         {actionRenderer(row)}
                       </td>
                     )}
