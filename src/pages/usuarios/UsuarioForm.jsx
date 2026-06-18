@@ -58,14 +58,15 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
   const [form, setForm] = useState(() => buildForm(usuario));
   const [originalForm, setOriginalForm] = useState(() => buildForm(usuario));
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(""); // <-- Cambiado de false a "" (string) para mensajes dinámicos
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingDetalle, setLoadingDetalle] = useState(false);
   const [detalleError, setDetalleError] = useState("");
   const [hasEmployeeData, setHasEmployeeData] = useState(() => hasEmpleadoInfo(usuario));
   const [showPassword, setShowPassword] = useState(false);
 
-  const isEmpleado = form.rol === "empleado";
+  // --- MODIFICACIÓN: Ambos roles usan el panel de salario ---
+  const isSueldoActivo = form.rol === "empleado" || form.rol === "lider";
 
   useEffect(() => {
     let active = true;
@@ -111,11 +112,9 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
     const { name, value } = e.target;
     setForm((prev) => {
       const next = { ...prev, [name]: value };
-      if (name === "rol" && value === "lider") {
-        next.monto = "";
-        next.tipo_pago = "mensual";
-        next.horas_mensuales = "";
-      }
+      
+      // --- MODIFICACIÓN: Se eliminó la limpieza de datos al cambiar a rol "lider" ---
+      
       if (name === "tipo_pago" && value === "por_hora") {
         next.horas_mensuales = "";
       }
@@ -139,7 +138,8 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
       return "La contraseña debe tener 8 caracteres, mayúscula, minúscula, número y carácter especial.";
     }
 
-    if (isEmpleado) {
+    // --- MODIFICACIÓN: Validación de salario aplica para la constante 'isSueldoActivo' ---
+    if (isSueldoActivo) {
       const salaryTouched = !isBlank(form.monto) || !isBlank(form.horas_mensuales) || form.tipo_pago !== originalForm.tipo_pago;
       const mustValidateSalary = !isEdit || hasEmployeeData || salaryTouched;
 
@@ -149,7 +149,9 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
 
         if (!form.tipo_pago) return "El tipo de pago es obligatorio.";
         if (!["mensual", "por_hora"].includes(form.tipo_pago)) return "Tipo de pago inválido.";
-        if (isBlank(form.monto)) return "El monto es obligatorio para empleados.";
+        
+        // Se generalizó el mensaje de error del monto
+        if (isBlank(form.monto)) return "El monto es obligatorio."; 
         const montoMin = isEdit ? 0.5 : 0.01;
         if (Number.isNaN(monto) || monto < montoMin || monto > 999999.99) return `El monto debe ser numérico y estar entre ${montoMin} y 999999.99.`;
         if (form.tipo_pago === "mensual" && isBlank(form.horas_mensuales)) {
@@ -180,7 +182,8 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
       password: form.password,
     };
 
-    if (form.rol === "empleado") {
+    // --- MODIFICACIÓN: Añadido isSueldoActivo al armado del payload ---
+    if (isSueldoActivo) {
       payload.monto = form.monto;
       payload.tipo_pago = form.tipo_pago;
       if (form.tipo_pago === "mensual") payload.horas_mensuales = form.horas_mensuales;
@@ -190,7 +193,8 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
   };
 
   const buildHistorialPayload = () => {
-    if (!isEmpleado || isBlank(form.monto)) return null;
+    // --- MODIFICACIÓN: Validar historial con isSueldoActivo ---
+    if (!isSueldoActivo || isBlank(form.monto)) return null;
 
     const changed =
       String(form.monto).trim() !== String(originalForm.monto || "").trim() ||
@@ -211,7 +215,7 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    setSuccess(""); // <-- Reiniciamos el string de éxito
+    setSuccess("");
 
     const validationError = validate();
     if (validationError) {
@@ -220,17 +224,15 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
       return;
     }
 
-    // --- CORRECCIÓN DEL BUG: VALIDAR SI HUBO CAMBIOS REALES ANTES DE GUARDAR ---
     if (isEdit) {
       const isUnchanged = JSON.stringify(form) === JSON.stringify(originalForm);
       if (isUnchanged) {
         setSuccess("Sin cambios realizados.");
         notifySuccess("Sin cambios realizados.");
-        setTimeout(() => onCreated?.(), 1000); // Pausa para que el usuario lea el mensaje
-        return; // Detenemos la ejecución
+        setTimeout(() => onCreated?.(), 1000);
+        return;
       }
     }
-    // ---------------------------------------------------------------------------
 
     setLoading(true);
     try {
@@ -247,7 +249,7 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
       const msg = response?.message || (isEdit ? "¡Usuario actualizado!" : "¡Usuario creado exitosamente!");
       setSuccess(msg);
       notifySuccess(msg);
-      setTimeout(() => onCreated?.(), 1000); // Pausa para que el usuario lea el mensaje
+      setTimeout(() => onCreated?.(), 1000);
     } catch (err) {
       const msg = getApiMessage(err, "Error al guardar el usuario.");
       setError(msg);
@@ -273,7 +275,7 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
             className="btn btn-sm btn-light rounded-circle p-1 lh-1 d-flex align-items-center justify-content-center"
             style={{ width: 30, height: 30 }}
             onClick={onCancel}
-            disabled={loading || !!success}> {/* <-- Bloqueado mientras hay mensaje de éxito */}
+            disabled={loading || !!success}>
             <i className="bi bi-x-lg" style={{ fontSize: 12 }}></i>
           </button>
         </div>
@@ -294,7 +296,6 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
             <i className="bi bi-exclamation-circle-fill me-2"></i>{error}
           </div>
         )}
-        {/* Renderizado dinámico del mensaje de éxito/sin cambios */}
         {success && (
           <div className="alert alert-success d-flex align-items-center py-2 small rounded-3 mb-3 animate-fadeIn">
             <i className="bi bi-check-circle-fill me-2"></i>
@@ -342,7 +343,8 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
               </div>
             </div>
 
-            {isEmpleado && (
+            {/* --- MODIFICACIÓN: Renderizar usando isSueldoActivo --- */}
+            {isSueldoActivo && (
               <div className="col-12 animate-fadeIn">
                 <div className="p-3 rounded-3" style={{ backgroundColor: "rgba(79, 70, 229, 0.05)", border: "1px dashed var(--primary)" }}>
                   <div className="d-flex align-items-center mb-2 text-primary">
