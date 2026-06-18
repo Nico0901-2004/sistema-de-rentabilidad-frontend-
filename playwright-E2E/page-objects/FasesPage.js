@@ -58,8 +58,14 @@ class FasesPage {
   }
 
   async fillForm({ nombre, horas_estimadas }) {
-    await this.nameInput.fill(nombre);
-    await this.estimatedHoursInput.fill(String(horas_estimadas));
+    await this.nameInput.clear();
+    await this.nameInput.pressSequentially(nombre);
+    await this.estimatedHoursInput.clear();
+    await this.estimatedHoursInput.pressSequentially(String(horas_estimadas));
+    await this.estimatedHoursInput.blur();
+
+    await expect(this.nameInput).toHaveValue(nombre);
+    await expect(this.estimatedHoursInput).toHaveValue(String(horas_estimadas));
   }
 
   async submitCreateForm() {
@@ -104,6 +110,8 @@ class FasesPage {
     expect(response.ok()).toBeTruthy();
     await expect(this.formTitle).toHaveText(/Editar fase/i);
     await expect(this.nameInput).toBeVisible();
+    await expect(this.nameInput).toBeEnabled();
+    await expect(this.estimatedHoursInput).toBeEnabled();
     await expect(this.nameInput).toHaveValue(name);
   }
 
@@ -117,6 +125,14 @@ class FasesPage {
         response.url().includes('/fases') &&
         response.request().method() === 'GET'
     );
+
+    if (expectedData?.nombre !== undefined) {
+      await expect(this.nameInput).toHaveValue(expectedData.nombre);
+    }
+
+    if (expectedData?.horas_estimadas !== undefined) {
+      await expect(this.estimatedHoursInput).toHaveValue(String(expectedData.horas_estimadas));
+    }
 
     await this.page.getByRole('button', { name: 'Actualizar fase' }).click();
     const response = await updateResponse;

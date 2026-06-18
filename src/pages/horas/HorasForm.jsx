@@ -5,9 +5,15 @@ import { getFasesByProyecto } from "../../services/faseService";
 import { notifySuccess } from "../../utils/notify";
 
 const today = () => {
-  const date = new Date();
-  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return localDate.toISOString().split("T")[0];
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Lima",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
 };
 
 const HorasForm = ({ idRegistroEdicion, proyectoPreseleccionado, fasesPreseleccionadas = [], onSaved, onCancel, forceRequired = false }) => {
