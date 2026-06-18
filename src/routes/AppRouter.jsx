@@ -21,6 +21,7 @@ import Rentabilidad     from "../pages/rentabilidad/Rentabilidad";
 // Horas y Asistencia
 import MisHorasList     from "../pages/horas/MisHorasList";
 import MarcajesList     from "../pages/horas/MarcajesList"; // HU 34
+import HorasEmpresaList from "../pages/horas/HorasEmpresaList"; // <-- NUEVO COMPONENTE IMPORTADO
 
 // Compartidas
 import ProyectoList     from "../pages/proyectos/ProyectoList";
@@ -138,7 +139,14 @@ export default function AppRouter() {
       {/* ══════════ GESTIÓN DE HORAS MODULADO COMPARTIDO (HU 30) ══════════ */}
       <Route path="/mis-horas" element={
         <RequireAuth>
-          <RequireRole roles={["empleado"]}><MisHorasList /></RequireRole>
+          <RequireRole roles={["empleado", "lider"]}><MisHorasList /></RequireRole>
+        </RequireAuth>
+      } />
+
+      {/* ══════════ SUPERVISIÓN DE HORAS EQUIPO (NUEVO) ══════════ */}
+      <Route path="/horas-equipo" element={
+        <RequireAuth>
+          <RequireRole roles={["propietario", "lider"]}><HorasEmpresaList /></RequireRole>
         </RequireAuth>
       } />
 

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Layout from "../../components/layout/Layout";
 import DataTable from "../../components/ui/DataTable";
 import { getRentabilidadProyectos } from "../../services/proyectoService";
+import { ESTADOS_PROYECTO_LIST, EstadoProyectoBadge, getProyectoEstado } from "../proyectos/projectUtils";
 
 const numberFields = {
   presupuesto: ["presupuesto", "ingresos_totales", "ingreso_total", "ingresos"],
@@ -56,6 +57,7 @@ const buildRow = (project) => {
     horas,
     margenDeseado,
     margenReal,
+    estado: getProyectoEstado(project),
     servicio: project.nombre_servicio || project.servicio_nombre,
     lider: project.nombre_lider || project.lider_nombre,
   };
@@ -127,6 +129,7 @@ const Rentabilidad = () => {
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
   const [margenFiltro, setMargenFiltro] = useState("");
+  const [estadoFiltro, setEstadoFiltro] = useState("");
 
   useEffect(() => {
     const fetchRentabilidad = async () => {
@@ -180,10 +183,11 @@ const Rentabilidad = () => {
         (margenFiltro === "alto" && margen !== null && margen >= 30) ||
         (margenFiltro === "riesgo" && margen !== null && margen >= 0 && margen < 30) ||
         (margenFiltro === "perdida" && margen !== null && margen < 0);
+      const matchEstado = !estadoFiltro || project.estado === estadoFiltro;
 
-      return matchSearch && matchDesde && matchHasta && matchMargen;
+      return matchSearch && matchDesde && matchHasta && matchMargen && matchEstado;
     });
-  }, [rows, search, fechaDesde, fechaHasta, margenFiltro]);
+  }, [rows, search, fechaDesde, fechaHasta, margenFiltro, estadoFiltro]);
 
   const totals = useMemo(() => {
     const sum = (field) => rows.reduce((acc, item) => acc + Number(item[field] || 0), 0);
@@ -203,6 +207,7 @@ const Rentabilidad = () => {
     setFechaDesde("");
     setFechaHasta("");
     setMargenFiltro("");
+    setEstadoFiltro("");
   };
 
   const columns = useMemo(() => {
@@ -225,6 +230,7 @@ const Rentabilidad = () => {
         ),
       },
       { header: "Servicio", cellClassName: "text-muted small", render: (project) => project.servicio || "—" },
+      { header: "Estado", render: (project) => <EstadoProyectoBadge estado={project.estado} /> },
     ];
 
     if (available.presupuesto) {
@@ -374,6 +380,16 @@ const Rentabilidad = () => {
               </select>
             </div>
           )}
+
+          <div className="col-12 col-lg-2">
+            <label className="form-label small fw-bold text-muted">Estado</label>
+            <select className="form-select" value={estadoFiltro} onChange={(e) => setEstadoFiltro(e.target.value)}>
+              <option value="">Todos</option>
+              {ESTADOS_PROYECTO_LIST.map((estado) => (
+                <option key={estado} value={estado}>{estado}</option>
+              ))}
+            </select>
+          </div>
 
           <div className="col-12 col-lg-2">
             <button className="btn btn-light w-100 fw-semibold" onClick={clearFilters}>
