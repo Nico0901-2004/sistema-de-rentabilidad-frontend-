@@ -19,6 +19,8 @@ const getNavItems = (rol, puedeVerMarcajes) => {
         { to: "/usuarios", icon: "bi-people-fill", label: "Usuarios" },
         { to: "/servicios", icon: "bi-briefcase-fill", label: "Servicios" },
         { to: "/proyectos", icon: "bi-kanban-fill", label: "Proyectos" },
+        // --- SE AGREGÓ ESTA LÍNEA PARA EL PROPIETARIO ---
+        { to: "/horas-equipo", icon: "bi-clock-history", label: "Horas del Equipo" },
         { to: "/rentabilidad", icon: "bi-graph-up-arrow", label: "Rentabilidad" },
         { to: "/perfil", icon: "bi-person-circle", label: "Mi Perfil" },
       ];
@@ -28,6 +30,9 @@ const getNavItems = (rol, puedeVerMarcajes) => {
         ...(puedeVerMarcajes ? [{ to: "/mis-marcajes", icon: "bi-calendar-check", label: "Mis Marcajes" }] : []),
         { to: "/proyectos", icon: "bi-kanban-fill", label: "Proyectos" },
         { to: "/notas", icon: "bi-journal-text", label: "Notas" },
+        { to: "/mis-horas", icon: "bi-clock", label: "Mis Horas" },
+        // --- SE AGREGÓ ESTA LÍNEA PARA EL LÍDER ---
+        { to: "/horas-equipo", icon: "bi-clock-history", label: "Horas del Equipo" },
         { to: "/perfil", icon: "bi-person-circle", label: "Mi Perfil" },
       ];
     case "empleado":
