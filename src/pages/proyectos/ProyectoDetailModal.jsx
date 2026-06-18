@@ -1,6 +1,6 @@
 import React from "react";
 import DataTable from "../../components/ui/DataTable";
-import { formatProyectoDate, getFaseId, getFaseNombre, getFaseHorasEstimadas, getHorasRegistradasByFase, getLiderNombre, getServicioNombre, getTotalHorasEstimadas, getTotalHorasResumen } from "./projectUtils";
+import { EstadoProyectoBadge, formatProyectoDate, getFaseId, getFaseNombre, getFaseHorasEstimadas, getHorasRegistradasByFase, getLiderNombre, getProyectoEstado, getServicioNombre, getTotalHorasEstimadas, getTotalHorasResumen } from "./projectUtils";
 
 const ProyectoDetailModal = ({ proyecto, onClose, horasResumen = [], fases = [], horasLoading = false, horasError = "" }) => {
   if (!proyecto) return null;
@@ -41,7 +41,10 @@ const ProyectoDetailModal = ({ proyecto, onClose, horasResumen = [], fases = [],
           <div className="d-flex justify-content-between align-items-start gap-3 mb-4">
             <div>
               <h5 className="fw-bold mb-1">{proyecto.nombre}</h5>
-              <p className="text-muted small mb-0">{getServicioNombre(proyecto)}</p>
+              <div className="d-flex align-items-center gap-2 flex-wrap">
+                <p className="text-muted small mb-0">{getServicioNombre(proyecto)}</p>
+                <EstadoProyectoBadge estado={getProyectoEstado(proyecto)} />
+              </div>
             </div>
             <button className="btn btn-sm btn-light rounded-3" onClick={onClose}>
               <i className="bi bi-x-lg"></i>

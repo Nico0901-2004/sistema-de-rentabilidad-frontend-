@@ -4,6 +4,107 @@ export const getLiderNombre = (proyecto) => proyecto.nombre_lider || proyecto.li
 export const isProyectoActivo = (proyecto) => proyecto.is_active !== false;
 export const formatProyectoDate = (date) => date ? date.slice(0, 10) : "---";
 export const formatShortDate = (date) => date ? String(date).slice(0, 10) : "—";
+
+export const ESTADOS_PROYECTO = {
+  COTIZADO: "Cotizado",
+  APROBADO: "Aprobado",
+  EJECUCION: "Ejecución",
+  DESESTIMADO: "Desestimado",
+  FINALIZADO: "Finalizado",
+};
+
+export const ESTADOS_PROYECTO_LIST = Object.values(ESTADOS_PROYECTO);
+
+export const ESTADO_META = {
+  [ESTADOS_PROYECTO.COTIZADO]: {
+    label: "Cotizado",
+    icon: "bi-file-earmark-text",
+    color: "#4F46E5",
+    bg: "rgba(79,70,229,.10)",
+    border: "rgba(79,70,229,.25)",
+  },
+  [ESTADOS_PROYECTO.APROBADO]: {
+    label: "Aprobado",
+    icon: "bi-check2-circle",
+    color: "#047857",
+    bg: "#D1FAE5",
+    border: "rgba(4,120,87,.30)",
+  },
+  [ESTADOS_PROYECTO.EJECUCION]: {
+    label: "Ejecución",
+    icon: "bi-play-circle-fill",
+    color: "#0369A1",
+    bg: "#E0F2FE",
+    border: "rgba(3,105,161,.30)",
+  },
+  [ESTADOS_PROYECTO.DESESTIMADO]: {
+    label: "Desestimado",
+    icon: "bi-x-circle",
+    color: "#B45309",
+    bg: "#FEF3C7",
+    border: "rgba(180,83,9,.30)",
+  },
+  [ESTADOS_PROYECTO.FINALIZADO]: {
+    label: "Finalizado",
+    icon: "bi-flag-fill",
+    color: "#475569",
+    bg: "#E2E8F0",
+    border: "rgba(71,85,105,.28)",
+  },
+};
+
+const TRANSICIONES_ESTADO = {
+  [ESTADOS_PROYECTO.COTIZADO]: [ESTADOS_PROYECTO.APROBADO, ESTADOS_PROYECTO.DESESTIMADO],
+  [ESTADOS_PROYECTO.APROBADO]: [ESTADOS_PROYECTO.EJECUCION, ESTADOS_PROYECTO.DESESTIMADO],
+  [ESTADOS_PROYECTO.EJECUCION]: [],
+  [ESTADOS_PROYECTO.DESESTIMADO]: [],
+  [ESTADOS_PROYECTO.FINALIZADO]: [],
+};
+
+export const getProyectoEstado = (proyecto) => {
+  if (proyecto?.estado) return proyecto.estado;
+  if (proyecto?.fecha_fin_real) return ESTADOS_PROYECTO.FINALIZADO;
+  return ESTADOS_PROYECTO.COTIZADO;
+};
+
+export const getEstadoMeta = (estado) => ESTADO_META[estado] || {
+  label: estado || "Sin estado",
+  icon: "bi-question-circle",
+  color: "#64748B",
+  bg: "rgba(100,116,139,.12)",
+  border: "rgba(100,116,139,.25)",
+};
+
+export const getTransicionesPermitidas = (proyecto) =>
+  TRANSICIONES_ESTADO[getProyectoEstado(proyecto)] || [];
+
+export const canFinishProyecto = (proyecto) =>
+  isProyectoActivo(proyecto) &&
+  getProyectoEstado(proyecto) === ESTADOS_PROYECTO.EJECUCION &&
+  !proyecto?.fecha_fin_real;
+
+export const canRegistrarHorasProyecto = (proyecto) =>
+  isProyectoActivo(proyecto) &&
+  getProyectoEstado(proyecto) === ESTADOS_PROYECTO.EJECUCION;
+
+export const EstadoProyectoBadge = ({ estado, className = "" }) => {
+  const meta = getEstadoMeta(estado);
+
+  return (
+    <span
+      className={`badge badge-role d-inline-flex align-items-center gap-1 ${className}`.trim()}
+      style={{
+        color: meta.color,
+        background: meta.bg,
+        border: `1.5px solid ${meta.border}`,
+      }}
+    >
+      <i className={`bi ${meta.icon}`}></i>
+      {meta.label}
+    </span>
+  );
+};
+
 export const getHorasResumenData = (response) => {
   if (Array.isArray(response)) return response;
   if (response?.success && Array.isArray(response.data)) return response.data;
