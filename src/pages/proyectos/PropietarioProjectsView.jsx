@@ -10,7 +10,21 @@ import NotasLists from "../notas/NotasLists";
 import { getFasesByProyecto } from "../../services/faseService";
 import { getProyectoById, getProyectos, eliminarProyecto, getHorasResumenProyecto } from "../../services/proyectoService";
 import { notifySuccess, notifyError } from "../../utils/notify";
-import { formatShortDate, getFaseId, getFaseNombre, getServicioNombre, getLiderNombre, getTotalHorasEstimadas, isDateInRange, isProyectoActivo, normalizeHorasResumen, normalizeProyectoFases } from "./projectUtils";
+import {
+  ESTADOS_PROYECTO_LIST,
+  EstadoProyectoBadge,
+  formatShortDate,
+  getFaseId,
+  getFaseNombre,
+  getLiderNombre,
+  getProyectoEstado,
+  getServicioNombre,
+  getTotalHorasEstimadas,
+  isDateInRange,
+  isProyectoActivo,
+  normalizeHorasResumen,
+  normalizeProyectoFases,
+} from "./projectUtils";
 
 const PropietarioProjectsView = () => {
   const [proyectos, setProyectos] = useState([]);
@@ -21,6 +35,7 @@ const PropietarioProjectsView = () => {
   const [search, setSearch] = useState("");
   const [filterProyecto, setFilterProyecto] = useState("");
   const [filterFase, setFilterFase] = useState("");
+  const [filterEstado, setFilterEstado] = useState("");
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
   const [selected, setSelected] = useState(null);
@@ -156,6 +171,7 @@ const PropietarioProjectsView = () => {
     setSearch("");
     setFilterProyecto("");
     setFilterFase("");
+    setFilterEstado("");
     setFechaDesde("");
     setFechaHasta("");
   };
@@ -176,14 +192,15 @@ const PropietarioProjectsView = () => {
         getServicioNombre(p).toLowerCase().includes(term) ||
         getLiderNombre(p).toLowerCase().includes(term);
       const matchProyecto = !filterProyecto || String(p.id_proyecto) === filterProyecto;
+      const matchEstado = !filterEstado || getProyectoEstado(p) === filterEstado;
       const matchFase = !filterFase || fasesProyecto.some((fase) =>
         String(getFaseId(fase) ?? getFaseNombre(fase)) === filterFase
       );
       const matchFecha = !(fechaDesde || fechaHasta) || resumenByDate.length > 0;
 
-      return matchSearch && matchProyecto && matchFase && matchFecha;
+      return matchSearch && matchProyecto && matchEstado && matchFase && matchFecha;
     });
-  }, [proyectos, horasResumenByProyecto, fasesByProyecto, search, filterProyecto, filterFase, fechaDesde, fechaHasta]);
+  }, [proyectos, horasResumenByProyecto, fasesByProyecto, search, filterProyecto, filterEstado, filterFase, fechaDesde, fechaHasta]);
 
   const getResumenVisible = useCallback((proyectoId) => {
     const resumen = horasResumenByProyecto[proyectoId] || [];
@@ -224,6 +241,16 @@ const PropietarioProjectsView = () => {
               <option value="">Todos los proyectos</option>
               {proyectos.map((p) => (
                 <option key={p.id_proyecto} value={String(p.id_proyecto)}>{p.nombre}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="col-12 col-sm-6 col-xl-2">
+            <label className="form-label small fw-bold text-muted">Estado</label>
+            <select className="form-select" value={filterEstado} onChange={(e) => setFilterEstado(e.target.value)}>
+              <option value="">Todos los estados</option>
+              {ESTADOS_PROYECTO_LIST.map((estado) => (
+                <option key={estado} value={estado}>{estado}</option>
               ))}
             </select>
           </div>
@@ -300,7 +327,7 @@ const PropietarioProjectsView = () => {
     },
     {
       header: "Líder",
-      style: { width: "14%" },
+      style: { width: "12%" },
       cellClassName: "text-muted small",
       render: (p) => (
         <span className="d-flex align-items-center gap-1" style={{ fontSize: 11, minWidth: 0 }}>
@@ -310,6 +337,11 @@ const PropietarioProjectsView = () => {
           </span>
         </span>
       ),
+    },
+    {
+      header: "Estado",
+      style: { width: "11%" },
+      render: (p) => <EstadoProyectoBadge estado={getProyectoEstado(p)} />,
     },
     {
       header: "Horas Estimadas", // CORRECCIÓN: Modificado título para reflejar solo lo estimado en tabla
@@ -406,43 +438,55 @@ const PropietarioProjectsView = () => {
         </div>
 
         {showForm && (
-          <ProyectoForm
-            proyectoId={editingId}
-            onSaved={handleSaved}
-            onCancel={() => { setShowForm(false); setEditingId(null); }}
-          />
+          <>
+            <ProyectoForm
+              proyectoId={editingId}
+              onSaved={handleSaved}
+              onCancel={() => { setShowForm(false); setEditingId(null); }}
+            >
+              {editingId && (
+                <FasesLists
+                  embedded
+                  editorMode
+                  proyectoId={editingId}
+                  proyecto={proyectos.find((p) => p.id_proyecto === editingId)}
+                  horasResumen={horasResumenByProyecto[editingId] || []}
+                  onChanged={fetch}
+                />
+              )}
+            </ProyectoForm>
+          </>
         )}
 
-        <DataTable
-          columns={columns}
-          data={filtered}
-          loading={loading}
-          error={error}
-          rowKey="id_proyecto"
-          filters={filters}
-          tableClassName="align-middle"
-          emptyIcon="bi-kanban"
-          emptyMessage="Sin proyectos"
-          onRowClick={setSelected}
-          rowClassName="animate-fadeIn"
-          rowStyle={{ cursor: "pointer" }}
-          renderActions={(p) => (
-            <div className="d-grid gap-1 ms-auto" style={{ gridTemplateColumns: "repeat(2, 30px)", width: 64 }}>
-              <button className="btn btn-sm btn-primary shadow-sm" title="Ver fases" onClick={() => setContentModal({ type: "fases", proyecto: p })}>
-                <i className="bi bi-layers"></i>
-              </button>
-              <button className="btn btn-sm btn-info shadow-sm text-white" title="Ver notas" onClick={() => setContentModal({ type: "notas", proyecto: p })}>
-                <i className="bi bi-journal-text"></i>
-              </button>
-              <button className="btn btn-sm btn-success shadow-sm" title="Editar" onClick={() => handleEdit(p.id_proyecto)}>
-                <i className="bi bi-pencil-square"></i>
-              </button>
-              <button className="btn btn-sm btn-danger shadow-sm" title="Eliminar" onClick={() => setConfirm({ type: "delete", proyecto: p })}>
-                <i className="bi bi-trash-fill"></i>
-              </button>
-            </div>
-          )}
-        />
+        {!showForm && (
+          <DataTable
+            columns={columns}
+            data={filtered}
+            loading={loading}
+            error={error}
+            rowKey="id_proyecto"
+            filters={filters}
+            tableClassName="align-middle"
+            emptyIcon="bi-kanban"
+            emptyMessage="Sin proyectos"
+            onRowClick={setSelected}
+            rowClassName="animate-fadeIn"
+            rowStyle={{ cursor: "pointer" }}
+            renderActions={(p) => (
+              <div className="d-flex gap-1 justify-content-end flex-nowrap">
+                <button className="btn btn-sm btn-info shadow-sm text-white" title="Ver notas" onClick={() => setContentModal({ type: "notas", proyecto: p })}>
+                  <i className="bi bi-journal-text"></i>
+                </button>
+                <button className="btn btn-sm btn-success shadow-sm" title="Editar" onClick={() => handleEdit(p.id_proyecto)}>
+                  <i className="bi bi-pencil-square"></i>
+                </button>
+                <button className="btn btn-sm btn-danger shadow-sm" title="Eliminar" onClick={() => setConfirm({ type: "delete", proyecto: p })}>
+                  <i className="bi bi-trash-fill"></i>
+                </button>
+              </div>
+            )}
+          />
+        )}
       </div>
 
       <ProyectoDetailModal
@@ -456,15 +500,7 @@ const PropietarioProjectsView = () => {
 
       {contentModal && (
         <ProjectContentModal onClose={() => setContentModal(null)}>
-          {contentModal.type === "fases" ? (
-            <FasesLists
-              embedded
-              proyectoId={contentModal.proyecto.id_proyecto}
-              horasResumen={horasResumenByProyecto[contentModal.proyecto.id_proyecto] || []}
-              onChanged={fetch}
-              onClose={() => setContentModal(null)}
-            />
-          ) : (
+          {contentModal.type === "notas" && (
             <NotasLists
               embedded
               proyectoId={contentModal.proyecto.id_proyecto}
@@ -476,7 +512,7 @@ const PropietarioProjectsView = () => {
 
       {confirm && (
         <ConfirmModal
-          danger
+          danger={confirm.type === "delete"}
           title="Eliminar proyecto"
           message={`¿Estás seguro de eliminar el proyecto "${confirm.proyecto.nombre}"?`}
           confirmLabel="Sí, eliminar"

@@ -235,10 +235,18 @@ const Login = () => {
             ? `Demasiados intentos fallidos. Intenta nuevamente en ${formatRemainingTime(localAttempt.lockedUntil - Date.now())}.`
             : buildFailedAttemptMessage(failedAttempts, apiMaxFailedAttempts)
         );
-      } else if (!err.response || status >= 500) {
-        setError("Error de servidor");
+      } else if (!err.response) {
+        setError("No se pudo conectar con el servidor. Verifica que el backend esté levantado en http://localhost:3000.");
+      } else if (status >= 500) {
+        setError(err.response?.data?.message || "Error interno del servidor");
       } else {
-        setError(err.response?.data?.message || "Error de servidor");
+        // --- AQUÍ ESTÁ LA CORRECCIÓN DE LA VALIDACIÓN ---
+        // Leemos si existe un array de errores (express-validator) o el mensaje por defecto
+        const validationMessage = err.response?.data?.errors?.[0]?.msg;
+        const apiMessage = err.response?.data?.message;
+        
+        // Prioridad: 1. Error de validación (ej. Longitud de password), 2. Mensaje de API, 3. Fallback
+        setError(validationMessage || apiMessage || "Error de servidor");
       }
     } finally {
       setLoading(false);
@@ -286,10 +294,11 @@ const Login = () => {
 
             <form onSubmit={handleSubmit} noValidate>
               <div style={{ marginBottom: "1rem" }}>
-                <label style={{ display: "block", fontWeight: 600, fontSize: 13, color: "#374151", marginBottom: 6 }}>Correo electrónico</label>
+                <label htmlFor="login-email" style={{ display: "block", fontWeight: 600, fontSize: 13, color: "#374151", marginBottom: 6 }}>Correo electrónico</label>
                 <div style={{ position: "relative" }}>
                   <i className="bi bi-envelope" style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", fontSize: 16 }}></i>
                   <input
+                    id="login-email"
                     type="email" name="email"
                     value={formData.email} onChange={handleChange}
                     placeholder="usuario@empresa.com" required autoComplete="email"
@@ -301,10 +310,11 @@ const Login = () => {
               </div>
 
               <div style={{ marginBottom: "0.5rem" }}>
-                <label style={{ display: "block", fontWeight: 600, fontSize: 13, color: "#374151", marginBottom: 6 }}>Contraseña</label>
+                <label htmlFor="login-password" style={{ display: "block", fontWeight: 600, fontSize: 13, color: "#374151", marginBottom: 6 }}>Contraseña</label>
                 <div style={{ position: "relative" }}>
                   <i className="bi bi-lock" style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", fontSize: 16 }}></i>
                   <input
+                    id="login-password"
                     type={showPassword ? "text" : "password"} name="password"
                     value={formData.password} onChange={handleChange}
                     placeholder="••••••••" required autoComplete="current-password"

@@ -21,11 +21,12 @@ const normalizeFases = (data) =>
 const getHorasFaseId = (registro) => registro.id_fase ?? registro.fase_id ?? null;
 const getHorasFaseNombre = (registro) => registro.fase_nombre ?? registro.nombre_fase ?? registro.fase ?? "";
 
-const FasesLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null, embedded = false, onClose, onChanged, horasResumen = [] }) => {
+const FasesLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null, embedded = false, editorMode = false, onClose, onChanged, horasResumen = [] }) => {
   const params = useParams();
   const { user } = useAuth();
   const proyectoId = proyectoIdProp || params.proyectoId || params.id;
   const canManage = user?.rol === "propietario"; // Criterio de aceptación HU-37 (Solo el dueño puede eliminar/gestionar)
+  const compactEditor = embedded && editorMode;
 
   const [proyecto, setProyecto] = useState(null);
   const [fases, setFases] = useState([]);
@@ -221,17 +222,31 @@ const FasesLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null,
 
   const filters = (
     <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
-      <div className="input-group" style={{ maxWidth: 360 }}>
-        <span className="input-group-text bg-white border-end-0">
-          <i className="bi bi-search text-muted"></i>
-        </span>
-        <input
-          type="text"
-          className="form-control border-start-0 ps-0"
-          placeholder="Buscar fase..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <div className="d-flex align-items-center flex-wrap gap-2" style={{ flex: "1 1 360px" }}>
+        <div className="input-group" style={{ maxWidth: compactEditor ? 420 : 360 }}>
+          <span className="input-group-text bg-white border-end-0">
+            <i className="bi bi-search text-muted"></i>
+          </span>
+          <input
+            type="text"
+            className="form-control border-start-0 ps-0"
+            placeholder="Buscar fase..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+
+        {compactEditor && canManage && (
+          <button
+            className="btn btn-primary d-inline-flex align-items-center gap-2 px-3"
+            onClick={() => { setEditingId(null); setShowForm(true); }}
+            disabled={!proyectoId}
+            type="button"
+          >
+            <i className="bi bi-plus-circle-fill"></i>
+            Nueva Fase
+          </button>
+        )}
       </div>
 
       <select className="form-select" style={{ maxWidth: 180 }} value={orderBy} onChange={(e) => setOrderBy(e.target.value)}>
@@ -242,8 +257,8 @@ const FasesLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null,
   );
 
   const content = (
-    <div className="animate-fadeInUp">
-      <div className="page-header d-flex justify-content-between align-items-start flex-wrap gap-3">
+    <div className={compactEditor ? "animate-fadeInUp mt-2 pt-3 border-top" : "animate-fadeInUp"}>
+      <div className={`${compactEditor ? "d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3" : "page-header d-flex justify-content-between align-items-start flex-wrap gap-3"}`}>
         <div>
           <div className="d-flex align-items-center gap-2 mb-1">
             {!embedded && (
@@ -251,11 +266,17 @@ const FasesLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null,
                 <i className="bi bi-arrow-left"></i>
               </Link>
             )}
-            <h2 className="fw-bold mb-0">Fases del proyecto</h2>
+            {compactEditor ? (
+              <h5 className="fw-bold mb-0">Fases del proyecto</h5>
+            ) : (
+              <h2 className="fw-bold mb-0">Fases del proyecto</h2>
+            )}
           </div>
-          <p className="text-muted small mb-0">
-            {proyecto?.nombre ? `Organiza las fases de ${proyecto.nombre}` : "Organiza el trabajo del proyecto por etapas"}
-          </p>
+          {!compactEditor && (
+            <p className="text-muted small mb-0">
+              {proyecto?.nombre ? `Organiza las fases de ${proyecto.nombre}` : "Organiza el trabajo del proyecto por etapas"}
+            </p>
+          )}
         </div>
 
         <div className="d-flex gap-2 flex-wrap">
@@ -265,7 +286,7 @@ const FasesLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null,
               Cerrar
             </button>
           )}
-          {canManage && (
+          {canManage && !compactEditor && (
             <button
               className="btn btn-primary d-flex align-items-center gap-2 px-4"
               onClick={() => { setEditingId(null); setShowForm(true); }}
@@ -278,6 +299,7 @@ const FasesLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null,
         </div>
       </div>
 
+      {!compactEditor && (
       <div className="row g-3 mb-4 stagger">
         {[
           { label: "Total fases", value: fasesConHoras.length, icon: "bi-layers-fill", color: "var(--primary)", bg: "rgba(79,70,229,.1)" },
@@ -300,6 +322,7 @@ const FasesLists = ({ proyectoId: proyectoIdProp, proyecto: proyectoProp = null,
           </div>
         ))}
       </div>
+      )}
 
       {showForm && (
         <FasesForm

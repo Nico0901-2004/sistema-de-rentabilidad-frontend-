@@ -1,0 +1,191 @@
+name: CI/CD Frontend - Sistema de Rentabilidad
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - qa
+  pull_request:
+    branches:
+      - main
+      - develop
+      - qa
+permissions:
+  contents: read
+
+jobs:
+  ci-validation:
+    name: Validación (Lint, Build y Tests Unitarios)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar código del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm install
+
+      - name: Ejecutar Pruebas Unitarias
+        run: |
+          if npm run | grep -q "test:unit"; then
+            npm run test:unit
+          else
+            npm test -- --watchAll=false --passWithNoTests
+          fi
+
+      - name: Validar Compilación (Build)
+        run: npm run build
+        env:
+          CI: false
+
+  e2e-testing:
+    name: Pruebas End-to-End (Playwright)
+    runs-on: ubuntu-latest
+    needs: ci-validation
+    if: github.event_name == 'push' && github.ref == 'refs/heads/qa'
+    steps:
+      - name: Descargar Frontend (Directorio actual)
+        uses: actions/checkout@v4
+        with:
+          path: frontend
+
+      - name: Descargar Backend (Para soporte de entorno E2E)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/Sistema-de-Rentabilidad-Backend-
+          path: Sistema-de-Rentabilidad-Backend-
+          ref: qa
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Instalar dependencias del Backend
+        run: npm install
+        working-directory: ./Sistema-de-Rentabilidad-Backend-
+
+      - name: Crear .env.qa del Backend
+        run: |
+          cat > .env.qa <<EOF
+          DATABASE_URL=${{ secrets.DATABASE_URL_QA }}
+          NODE_ENV=qa
+          JWT_SECRET=${{ secrets.JWT_SECRET_QA }}
+          JWT_EXPIRES=1d
+          JWT_ISSUER=sistema-de-rentabilidad-backend
+          JWT_AUDIENCE=sistema-de-rentabilidad-client
+          JWT_REQUIRE_CLAIMS=false
+          FRONTEND_URL=http://localhost:3001
+          BCRYPT_SALT_ROUNDS=10
+          LOGIN_RATE_LIMIT_STORE=memory
+          LOGIN_RATE_LIMIT_WINDOW_MS=900000
+          LOGIN_RATE_LIMIT_MAX_ATTEMPTS=10
+          MARCAJE_ENTRADA_HORA_INICIO=06:00
+          MARCAJE_ENTRADA_HORA_FIN=10:00
+          EOF
+        working-directory: ./Sistema-de-Rentabilidad-Backend-
+
+      - name: Instalar dependencias del Frontend
+        run: npm install
+        working-directory: ./frontend
+
+      - name: Crear .env.qa del Frontend
+        run: |
+          cat > .env.qa <<EOF
+          PORT=3001
+          QA_ENV=qa
+          REACT_APP_ENV=qa
+          REACT_APP_API_URL=http://localhost:3000/api
+          QA_FRONTEND_URL=http://localhost:3001
+          QA_BACKEND_URL=http://localhost:3000
+          QA_ADMIN_EMAIL=qa_admin@test.com
+          QA_PROPIETARIO_EMAIL=qa_propietario@test.com
+          QA_LIDER_EMAIL=qa_lider@test.com
+          QA_EMPLEADO_EMAIL=qa_empleado1@test.com
+          QA_USER_PASSWORD=Qa123456*
+          EOF
+        working-directory: ./frontend
+
+      - name: Instalar Navegadores de Playwright
+        run: npx playwright install --with-deps
+        working-directory: ./frontend
+
+      - name: Ejecutar Semillas y Pruebas E2E
+        run: npm run test:e2e:ci
+        working-directory: ./frontend
+
+  deploy-qa:
+    name: Despliegue en QA (Vercel Preview)
+    runs-on: ubuntu-latest
+    needs: e2e-testing
+    if: github.event_name == 'push' && github.ref == 'refs/heads/qa'
+    environment:
+      name: qa
+    steps:
+      - name: Descargar código del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm install
+
+      - name: Instalar Vercel CLI
+        run: npm install --global vercel
+
+      - name: Obtener Configuración Vercel QA
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Compilar y Desplegar Estáticos en QA
+        run: vercel build && vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+  deploy-production:
+    name: Despliegue en Producción (Vercel Prod)
+    runs-on: ubuntu-latest
+    needs: ci-validation
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: production
+    steps:
+      - name: Descargar código del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm install
+
+      - name: Instalar Vercel CLI
+        run: npm install --global vercel
+
+      - name: Obtener Configuración Vercel Producción
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Compilar y Desplegar Estáticos en Producción
+        run: vercel build --prod && vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}

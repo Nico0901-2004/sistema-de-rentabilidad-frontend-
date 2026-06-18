@@ -58,14 +58,15 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
   const [form, setForm] = useState(() => buildForm(usuario));
   const [originalForm, setOriginalForm] = useState(() => buildForm(usuario));
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingDetalle, setLoadingDetalle] = useState(false);
   const [detalleError, setDetalleError] = useState("");
   const [hasEmployeeData, setHasEmployeeData] = useState(() => hasEmpleadoInfo(usuario));
   const [showPassword, setShowPassword] = useState(false);
 
-  const isEmpleado = form.rol === "empleado";
+  // --- MODIFICACIÓN: Ambos roles usan el panel de salario ---
+  const isSueldoActivo = form.rol === "empleado" || form.rol === "lider";
 
   useEffect(() => {
     let active = true;
@@ -111,11 +112,9 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
     const { name, value } = e.target;
     setForm((prev) => {
       const next = { ...prev, [name]: value };
-      if (name === "rol" && value === "lider") {
-        next.monto = "";
-        next.tipo_pago = "mensual";
-        next.horas_mensuales = "";
-      }
+      
+      // --- MODIFICACIÓN: Se eliminó la limpieza de datos al cambiar a rol "lider" ---
+      
       if (name === "tipo_pago" && value === "por_hora") {
         next.horas_mensuales = "";
       }
@@ -139,7 +138,8 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
       return "La contraseña debe tener 8 caracteres, mayúscula, minúscula, número y carácter especial.";
     }
 
-    if (isEmpleado) {
+    // --- MODIFICACIÓN: Validación de salario aplica para la constante 'isSueldoActivo' ---
+    if (isSueldoActivo) {
       const salaryTouched = !isBlank(form.monto) || !isBlank(form.horas_mensuales) || form.tipo_pago !== originalForm.tipo_pago;
       const mustValidateSalary = !isEdit || hasEmployeeData || salaryTouched;
 
@@ -149,7 +149,9 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
 
         if (!form.tipo_pago) return "El tipo de pago es obligatorio.";
         if (!["mensual", "por_hora"].includes(form.tipo_pago)) return "Tipo de pago inválido.";
-        if (isBlank(form.monto)) return "El monto es obligatorio para empleados.";
+        
+        // Se generalizó el mensaje de error del monto
+        if (isBlank(form.monto)) return "El monto es obligatorio."; 
         const montoMin = isEdit ? 0.5 : 0.01;
         if (Number.isNaN(monto) || monto < montoMin || monto > 999999.99) return `El monto debe ser numérico y estar entre ${montoMin} y 999999.99.`;
         if (form.tipo_pago === "mensual" && isBlank(form.horas_mensuales)) {
@@ -180,7 +182,8 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
       password: form.password,
     };
 
-    if (form.rol === "empleado") {
+    // --- MODIFICACIÓN: Añadido isSueldoActivo al armado del payload ---
+    if (isSueldoActivo) {
       payload.monto = form.monto;
       payload.tipo_pago = form.tipo_pago;
       if (form.tipo_pago === "mensual") payload.horas_mensuales = form.horas_mensuales;
@@ -190,7 +193,8 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
   };
 
   const buildHistorialPayload = () => {
-    if (!isEmpleado || isBlank(form.monto)) return null;
+    // --- MODIFICACIÓN: Validar historial con isSueldoActivo ---
+    if (!isSueldoActivo || isBlank(form.monto)) return null;
 
     const changed =
       String(form.monto).trim() !== String(originalForm.monto || "").trim() ||
@@ -211,13 +215,23 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    setSuccess(false);
+    setSuccess("");
 
     const validationError = validate();
     if (validationError) {
       setError(validationError);
       notifyError(validationError);
       return;
+    }
+
+    if (isEdit) {
+      const isUnchanged = JSON.stringify(form) === JSON.stringify(originalForm);
+      if (isUnchanged) {
+        setSuccess("Sin cambios realizados.");
+        notifySuccess("Sin cambios realizados.");
+        setTimeout(() => onCreated?.(), 1000);
+        return;
+      }
     }
 
     setLoading(true);
@@ -232,10 +246,10 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
         response = await createUser(buildCreatePayload());
       }
 
-      const msg = response?.message || (isEdit ? "Usuario actualizado correctamente" : "Usuario creado correctamente");
-      setSuccess(true);
+      const msg = response?.message || (isEdit ? "¡Usuario actualizado!" : "¡Usuario creado exitosamente!");
+      setSuccess(msg);
       notifySuccess(msg);
-      setTimeout(() => onCreated?.(), 700);
+      setTimeout(() => onCreated?.(), 1000);
     } catch (err) {
       const msg = getApiMessage(err, "Error al guardar el usuario.");
       setError(msg);
@@ -260,7 +274,8 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
           <button type="button"
             className="btn btn-sm btn-light rounded-circle p-1 lh-1 d-flex align-items-center justify-content-center"
             style={{ width: 30, height: 30 }}
-            onClick={onCancel}>
+            onClick={onCancel}
+            disabled={loading || !!success}>
             <i className="bi bi-x-lg" style={{ fontSize: 12 }}></i>
           </button>
         </div>
@@ -282,9 +297,9 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
           </div>
         )}
         {success && (
-          <div className="alert alert-success d-flex align-items-center py-2 small rounded-3 mb-3">
+          <div className="alert alert-success d-flex align-items-center py-2 small rounded-3 mb-3 animate-fadeIn">
             <i className="bi bi-check-circle-fill me-2"></i>
-            {isEdit ? "¡Usuario actualizado!" : "¡Usuario creado exitosamente!"}
+            {success}
           </div>
         )}
 
@@ -293,11 +308,11 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
             <div className="col-12 col-sm-6">
               <label className="form-label fw-semibold small">Nombre completo</label>
               <input type="text" name="nombre" value={form.nombre} onChange={handleChange}
-                className="form-control" placeholder="Ej: Juan Pérez" required disabled={loadingDetalle} />
+                className="form-control" placeholder="Ej: Juan Pérez" required disabled={loadingDetalle || !!success} />
             </div>
             <div className="col-12 col-sm-6">
               <label className="form-label fw-semibold small">Rol</label>
-              <select name="rol" value={form.rol} onChange={handleChange} className="form-select" required disabled={loadingDetalle}>
+              <select name="rol" value={form.rol} onChange={handleChange} className="form-select" required disabled={loadingDetalle || !!success}>
                 <option value="lider">Líder de equipo</option>
                 <option value="empleado">Empleado</option>
               </select>
@@ -305,7 +320,7 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
             <div className="col-12 col-sm-6">
               <label className="form-label fw-semibold small">Correo electrónico</label>
               <input type="email" name="email" value={form.email} onChange={handleChange}
-                className="form-control" placeholder="usuario@empresa.com" required disabled={loadingDetalle} />
+                className="form-control" placeholder="usuario@empresa.com" required disabled={loadingDetalle || !!success} />
             </div>
             <div className="col-12 col-sm-6">
               <label className="form-label fw-semibold small">
@@ -320,15 +335,16 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
                   className="form-control"
                   placeholder={isEdit ? "Nueva contraseña (opcional)" : "Ej: MiPass123!"}
                   required={!isEdit}
-                  disabled={loadingDetalle}
+                  disabled={loadingDetalle || !!success}
                 />
-                <button className="btn btn-outline-secondary" type="button" onClick={() => setShowPassword(!showPassword)}>
+                <button className="btn btn-outline-secondary" type="button" onClick={() => setShowPassword(!showPassword)} disabled={!!success}>
                   <i className={`bi ${showPassword ? "bi-eye-slash" : "bi-eye"}`}></i>
                 </button>
               </div>
             </div>
 
-            {isEmpleado && (
+            {/* --- MODIFICACIÓN: Renderizar usando isSueldoActivo --- */}
+            {isSueldoActivo && (
               <div className="col-12 animate-fadeIn">
                 <div className="p-3 rounded-3" style={{ backgroundColor: "rgba(79, 70, 229, 0.05)", border: "1px dashed var(--primary)" }}>
                   <div className="d-flex align-items-center mb-2 text-primary">
@@ -348,7 +364,7 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
                         min={isEdit ? "0.5" : "0.01"}
                         max="999999.99"
                         step="0.01"
-                        disabled={loadingDetalle}
+                        disabled={loadingDetalle || !!success}
                       />
                     </div>
                     <div className="col-12 col-sm-4">
@@ -358,7 +374,7 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
                         value={form.tipo_pago}
                         onChange={handleChange}
                         className="form-select form-select-sm"
-                        disabled={loadingDetalle}
+                        disabled={loadingDetalle || !!success}
                       >
                         <option value="mensual">Mensual</option>
                         <option value="por_hora">Por hora</option>
@@ -377,7 +393,7 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
                           min="1"
                           max="320"
                           step="1"
-                          disabled={loadingDetalle}
+                          disabled={loadingDetalle || !!success}
                         />
                       </div>
                     )}
@@ -393,14 +409,14 @@ const UsuarioForm = ({ onCreated, onCancel, usuario }) => {
           </div>
 
           <div className="d-flex gap-2 mt-4">
-            <button type="button" className="btn btn-light fw-semibold px-4" onClick={onCancel} disabled={loading}>
+            <button type="button" className="btn btn-light fw-semibold px-4" onClick={onCancel} disabled={loading || !!success}>
               Cancelar
             </button>
-            <button type="submit" className="btn btn-primary flex-fill" disabled={loading || loadingDetalle || success}>
+            <button type="submit" className="btn btn-primary flex-fill" disabled={loading || loadingDetalle || !!success}>
               {loading
                 ? <><span className="spinner-border spinner-border-sm me-2"></span>{isEdit ? "Guardando..." : "Creando..."}</>
                 : success
-                  ? <><i className="bi bi-check-lg me-2"></i>{isEdit ? "Guardado" : "Creado"}</>
+                  ? <><i className="bi bi-check-lg me-2"></i>Guardado</>
                   : isEdit
                     ? <><i className="bi bi-check-lg me-2"></i>Guardar cambios</>
                     : <><i className="bi bi-person-plus-fill me-2"></i>Crear usuario</>}

@@ -40,6 +40,22 @@ const MiPerfil = () => {
       const nombre = form.nombre.trim();
       const email = form.email.trim();
 
+      // --- CORRECCIÓN DEL BUG: VALIDAR SI EXISTEN CAMBIOS REALES ANTES DE GUARDAR ---
+      const isNombreChanged = nombre !== (user?.nombre || "");
+      // Solo consideramos cambio de correo si no está restringido Y el valor es diferente
+      const isEmailChanged = !isEmailRestricted && email !== (user?.email || "");
+      // Si la contraseña tiene algo escrito, asumimos que intenta cambiarla
+      const isPasswordChanged = form.password.length > 0;
+
+      // Si no hay ningún cambio en absoluto:
+      if (!isNombreChanged && !isEmailChanged && !isPasswordChanged) {
+        setSuccess("No se realizaron cambios.");
+        setEditing(false); // Cerramos el formulario de edición
+        setSaving(false);
+        return; // Detenemos la función para no hacer la petición al backend
+      }
+      // -------------------------------------------------------------------------------
+
       if (nombre.length < 3 || nombre.length > 100) {
         setError("El nombre debe tener entre 3 y 100 caracteres.");
         setSaving(false);

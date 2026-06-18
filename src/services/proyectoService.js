@@ -27,6 +27,11 @@ export const updateProyecto = async (id, data) => {
   return response.data;
 };
 
+export const cambiarEstadoProyecto = async (id, payload) => {
+  const response = await api.put(`/proyectos/${id}`, payload);
+  return response.data;
+};
+
 export const desactivarProyecto = async (id) => {
   const response = await api.put(`/proyectos/${id}/desactivar`);
   return response.data;

@@ -6,7 +6,7 @@ import EmpleadoProyectoDetailModal from "./EmpleadoProyectoDetailModal";
 import { getFasesByProyecto } from "../../services/faseService";
 import { getHoras } from "../../services/horasService";
 import { getMisProyectos } from "../../services/proyectoService";
-import { getFaseId, getFaseNombre, getTotalHorasEstimadas, normalizeProyectoFases } from "./projectUtils";
+import { EstadoProyectoBadge, canRegistrarHorasProyecto, getFaseId, getFaseNombre, getProyectoEstado, getTotalHorasEstimadas, normalizeProyectoFases } from "./projectUtils";
 
 const EmpleadoProjectsView = () => {
   const [proyectos, setProyectos] = useState([]);
@@ -120,6 +120,9 @@ const EmpleadoProjectsView = () => {
         <>
           <div>{p.nombre}</div>
           {p.servicio_nombre && <small className="text-muted">{p.servicio_nombre}</small>}
+          <div className="mt-1">
+            <EstadoProyectoBadge estado={getProyectoEstado(p)} />
+          </div>
         </>
       ),
     },
@@ -211,15 +214,21 @@ const EmpleadoProjectsView = () => {
           onRowClick={setSelected}
           rowClassName="animate-fadeIn"
           rowStyle={{ cursor: "pointer" }}
-          renderActions={(p) => (
-            <button
-              className="btn btn-sm btn-primary d-inline-flex align-items-center gap-2"
-              onClick={() => setHorasProyecto(p)}
-            >
-              <i className="bi bi-clock-history"></i>
-              Registrar horas
-            </button>
-          )}
+          renderActions={(p) => {
+            const canRegister = canRegistrarHorasProyecto(p);
+
+            return (
+              <button
+                className={`btn btn-sm d-inline-flex align-items-center gap-2 ${canRegister ? "btn-primary" : "btn-light text-muted"}`}
+                onClick={() => canRegister && setHorasProyecto(p)}
+                disabled={!canRegister}
+                title={canRegister ? "Registrar horas" : "Solo se registran horas en proyectos en ejecución"}
+              >
+                <i className="bi bi-clock-history"></i>
+                Registrar horas
+              </button>
+            );
+          }}
         />
 
       </div>

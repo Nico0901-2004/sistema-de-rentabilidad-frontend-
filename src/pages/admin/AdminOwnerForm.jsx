@@ -36,10 +36,11 @@ const getApiMessage = (err, fallback) =>
 const AdminOwnerForm = ({ onSaved, onCancel, owner }) => {
   const isEdit = Boolean(owner);
   const [form, setForm] = useState(() => buildForm(owner));
+  const [originalForm, setOriginalForm] = useState(() => buildForm(owner)); // <-- NUEVO: Estado para comparar
   const [empresas, setEmpresas]       = useState([]);
   const [owners, setOwners]           = useState([]);
   const [error, setError]             = useState("");
-  const [success, setSuccess]         = useState(false);
+  const [success, setSuccess]         = useState(""); // <-- Cambiado de false a "" (string)
   const [loading, setLoading]         = useState(false);
   const [loadingDetalle, setLoadingDetalle] = useState(false);
   const [detalleError, setDetalleError] = useState("");
@@ -62,9 +63,11 @@ const AdminOwnerForm = ({ onSaved, onCancel, owner }) => {
 
     const loadOwner = async () => {
       if (!isEdit || !owner?.id_usuario) {
-        setForm(buildForm(owner));
+        const initial = buildForm(owner);
+        setForm(initial);
+        setOriginalForm(initial);
         setError("");
-        setSuccess(false);
+        setSuccess("");
         setDetalleError("");
         return;
       }
@@ -72,14 +75,18 @@ const AdminOwnerForm = ({ onSaved, onCancel, owner }) => {
       try {
         setLoadingDetalle(true);
         setError("");
-        setSuccess(false);
+        setSuccess("");
         setDetalleError("");
         const response = await getUsuarioById(owner.id_usuario);
         if (!active) return;
-        setForm(buildForm({ ...owner, ...(response.data || {}) }));
+        const loaded = buildForm({ ...owner, ...(response.data || {}) });
+        setForm(loaded);
+        setOriginalForm(loaded); // Guardamos la foto inicial de los datos
       } catch (err) {
         if (!active) return;
-        setForm(buildForm(owner));
+        const fallback = buildForm(owner);
+        setForm(fallback);
+        setOriginalForm(fallback);
         setDetalleError(getApiMessage(err, "No se pudo cargar el detalle actualizado del propietario."));
       } finally {
         if (active) setLoadingDetalle(false);
@@ -139,7 +146,7 @@ const AdminOwnerForm = ({ onSaved, onCancel, owner }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    setSuccess(false);
+    setSuccess("");
 
     const validationError = validate();
     if (validationError) {
@@ -147,6 +154,18 @@ const AdminOwnerForm = ({ onSaved, onCancel, owner }) => {
       notifyError(validationError);
       return;
     }
+
+    // --- LÓGICA DEL TICKET: COMPROBAR CAMBIOS REALES ---
+    if (isEdit) {
+      const isUnchanged = JSON.stringify(form) === JSON.stringify(originalForm);
+      if (isUnchanged) {
+        setSuccess("Sin cambios.");
+        notifySuccess("Sin cambios.");
+        setTimeout(() => onSaved?.(), 1000); // Pausa de 1 seg
+        return; // Detenemos la petición
+      }
+    }
+    // ---------------------------------------------------
 
     setLoading(true);
     try {
@@ -157,9 +176,10 @@ const AdminOwnerForm = ({ onSaved, onCancel, owner }) => {
         response = await createUser(buildPayload());
       }
       if (response?.success || response?.user) {
-        setSuccess(true);
-        notifySuccess(isEdit ? "Propietario actualizado correctamente." : "Propietario creado correctamente.");
-        setTimeout(() => onSaved?.(), 600);
+        const msg = isEdit ? "Propietario actualizado correctamente." : "Propietario creado correctamente.";
+        setSuccess(msg);
+        notifySuccess(msg);
+        setTimeout(() => onSaved?.(), 1000); // Pausa de 1 seg
       } else {
         setError(response?.message || "Error al guardar el propietario.");
       }
@@ -189,7 +209,8 @@ const AdminOwnerForm = ({ onSaved, onCancel, owner }) => {
           <button type="button"
             className="btn btn-sm btn-light rounded-circle p-1 lh-1 d-flex align-items-center justify-content-center"
             style={{ width: 30, height: 30 }}
-            onClick={onCancel}>
+            onClick={onCancel}
+            disabled={loading || !!success}>
             <i className="bi bi-x-lg" style={{ fontSize: 12 }}></i>
           </button>
         </div>
@@ -211,9 +232,9 @@ const AdminOwnerForm = ({ onSaved, onCancel, owner }) => {
           </div>
         )}
         {success && (
-          <div className="alert alert-success d-flex align-items-center py-2 small rounded-3 mb-3">
+          <div className="alert alert-success d-flex align-items-center py-2 small rounded-3 mb-3 animate-fadeIn">
             <i className="bi bi-check-circle-fill me-2"></i>
-            {isEdit ? "Propietario actualizado." : "Propietario creado."}
+            {success}
           </div>
         )}
 
@@ -222,7 +243,7 @@ const AdminOwnerForm = ({ onSaved, onCancel, owner }) => {
             <div className="col-12 col-sm-6">
               <label className="form-label fw-semibold small">Empresa</label>
               <select name="id_empresa" value={form.id_empresa} onChange={handleChange}
-                className="form-select" required={!isEdit} disabled={isEdit || loadingDetalle}>
+                className="form-select" required={!isEdit} disabled={isEdit || loadingDetalle || !!success}>
                 <option value="">Selecciona una empresa</option>
                 {empresasDisponibles.map((e) => (
                   <option key={e.id_empresa} value={e.id_empresa}>{e.empresa_nombre}</option>
@@ -233,13 +254,13 @@ const AdminOwnerForm = ({ onSaved, onCancel, owner }) => {
             <div className="col-12 col-sm-6">
               <label className="form-label fw-semibold small">Nombre completo</label>
               <input type="text" name="nombre" value={form.nombre} onChange={handleChange}
-                className="form-control" placeholder="Ej: Juan Pérez" required disabled={loadingDetalle} />
+                className="form-control" placeholder="Ej: Juan Pérez" required disabled={loadingDetalle || !!success} />
             </div>
 
             <div className="col-12 col-sm-6">
               <label className="form-label fw-semibold small">Correo electrónico</label>
               <input type="email" name="email" value={form.email} onChange={handleChange}
-                className="form-control" placeholder="propietario@empresa.com" required disabled={loadingDetalle} />
+                className="form-control" placeholder="propietario@empresa.com" required disabled={loadingDetalle || !!success} />
             </div>
 
             <div className="col-12 col-sm-6">
@@ -255,9 +276,9 @@ const AdminOwnerForm = ({ onSaved, onCancel, owner }) => {
                   className="form-control"
                   placeholder={isEdit ? "Nueva contraseña (opcional)" : "Ej: MiPass123!"}
                   required={!isEdit}
-                  disabled={loadingDetalle}
+                  disabled={loadingDetalle || !!success}
                 />
-                <button className="btn btn-outline-secondary" type="button" onClick={() => setShowPassword(!showPassword)}>
+                <button className="btn btn-outline-secondary" type="button" onClick={() => setShowPassword(!showPassword)} disabled={!!success}>
                   <i className={`bi ${showPassword ? "bi-eye-slash" : "bi-eye"}`}></i>
                 </button>
               </div>
@@ -268,14 +289,14 @@ const AdminOwnerForm = ({ onSaved, onCancel, owner }) => {
           </div>
 
           <div className="d-flex gap-2 mt-4">
-            <button type="button" className="btn btn-light fw-semibold px-4" onClick={onCancel} disabled={loading}>
+            <button type="button" className="btn btn-light fw-semibold px-4" onClick={onCancel} disabled={loading || !!success}>
               Cancelar
             </button>
-            <button type="submit" className="btn btn-primary flex-fill" disabled={loading || loadingDetalle || success}>
+            <button type="submit" className="btn btn-primary flex-fill" disabled={loading || loadingDetalle || !!success}>
               {loading
                 ? <><span className="spinner-border spinner-border-sm me-2"></span>{isEdit ? "Guardando..." : "Creando..."}</>
                 : success
-                  ? <><i className="bi bi-check-lg me-2"></i>{isEdit ? "Guardado" : "Creado"}</>
+                  ? <><i className="bi bi-check-lg me-2"></i>{success === "Sin cambios." ? "Sin cambios" : "Guardado"}</>
                 : isEdit
                   ? <><i className="bi bi-check-lg me-2"></i>Guardar cambios</>
                   : <><i className="bi bi-person-plus-fill me-2"></i>Crear propietario</>}

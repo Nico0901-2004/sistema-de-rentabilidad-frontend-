@@ -2,6 +2,217 @@
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
+## Entorno QA y pruebas E2E con Playwright
+
+El frontend queda preparado para ejecutar pruebas E2E con Playwright contra el backend Express en entorno QA.
+
+### Configuracion
+
+- Usa `.env.qa` en el frontend.
+- El backend debe ejecutarse con su propio `.env.qa`.
+- `REACT_APP_API_URL` debe apuntar al backend QA.
+- `FRONTEND_URL` del backend debe coincidir con `QA_FRONTEND_URL` para evitar bloqueos CORS.
+- Los tests E2E deben crearse dentro de `playwright-E2E/`.
+
+### Variables requeridas en `.env.qa`
+
+```env
+PORT=3001
+QA_ENV=qa
+REACT_APP_ENV=qa
+REACT_APP_API_URL=http://localhost:3000/api
+
+QA_FRONTEND_URL=http://localhost:3001
+QA_BACKEND_URL=http://localhost:3000
+
+QA_ADMIN_EMAIL=qa_admin@test.com
+QA_PROPIETARIO_EMAIL=qa_propietario@test.com
+QA_LIDER_EMAIL=qa_lider@test.com
+QA_EMPLEADO_EMAIL=qa_empleado1@test.com
+QA_USER_PASSWORD=Qa123456*
+```
+
+> No subir `.env.qa` al repositorio. Este archivo esta ignorado por Git.
+
+### Instalacion inicial
+
+```bash
+npm install
+npx playwright install
+```
+
+### Levantar frontend QA
+
+```bash
+npm run start:qa
+```
+
+Al iniciar, el frontend muestra el entorno cargado:
+
+```txt
+Node.js vXX.XX.X
+Frontend running on port 3001
+Environment: qa
+```
+
+### Sembrar datos QA desde backend
+
+```bash
+npm run qa:seed
+```
+
+Este comando usa los seeders existentes del backend y carga usuarios, empresas, servicios, proyectos, fases, horas y marcajes para pruebas.
+
+> Ejecutar seeds QA solo contra una base de datos QA.
+
+### Ejecutar pruebas E2E
+
+```bash
+npm run test:e2e
+```
+
+### Ejecutar pruebas E2E reiniciando datos QA antes
+
+```bash
+npm run test:e2e:qa
+```
+
+### Abrir Playwright en modo UI
+
+```bash
+npm run test:e2e:ui
+```
+
+### Ejecutar Playwright con navegador visible
+
+```bash
+npm run test:e2e:headed
+```
+
+### Scripts E2E disponibles
+
+```json
+{
+  "start:qa": "node start-qa.js",
+  "test:e2e": "playwright test",
+  "test:e2e:ui": "playwright test --ui",
+  "test:e2e:headed": "playwright test --headed",
+  "qa:seed": "npm --prefix ../Sistema-de-Rentabilidad-Backend- run seed:qa",
+  "test:e2e:qa": "npm run qa:seed && playwright test"
+}
+```
+
+### Datos QA precargados
+
+Los helpers E2E estan preparados para usar los usuarios creados por los seeders del backend:
+
+| Rol | Email |
+|---|---|
+| Admin | `qa_admin@test.com` |
+| Propietario | `qa_propietario@test.com` |
+| Lider | `qa_lider@test.com` |
+| Empleado | `qa_empleado1@test.com` |
+| Empleado | `qa_empleado2@test.com` |
+
+La contrasena se lee desde `QA_USER_PASSWORD`.
+
+## Pruebas unitarias y de componentes con Vitest + React Testing Library
+
+El frontend queda preparado para ejecutar pruebas unitarias, pruebas de componentes React e integracion ligera con Vitest + React Testing Library.
+
+Estas pruebas no levantan navegador real ni backend real. Para flujos reales de usuario, autenticacion contra backend, navegacion completa y pruebas por rol se debe seguir usando Playwright dentro de `playwright-E2E/`.
+
+### Configuracion
+
+- Vitest se configura desde `vitest.config.js`.
+- El entorno de pruebas usa `jsdom` para simular el DOM en Node.js.
+- React Testing Library se inicializa desde `tests/setup/setupTests.js`.
+- Las pruebas futuras deben crearse dentro de `tests/`.
+- Las pruebas E2E deben mantenerse dentro de `playwright-E2E/`.
+- El script `npm test` se mantiene con `react-scripts test` para no romper la configuracion original de Create React App.
+
+### Estructura de pruebas
+
+```txt
+tests/
+├── unit/
+├── components/
+├── integration/
+└── setup/
+    └── setupTests.js
+```
+
+- `tests/unit/`: pruebas de funciones, utilidades, validaciones, services mockeados y logica aislada.
+- `tests/components/`: pruebas de componentes React con React Testing Library.
+- `tests/integration/`: pruebas ligeras entre componentes, hooks o services mockeados.
+- `tests/setup/`: configuracion global usada por Vitest.
+- `tests/setup/setupTests.js`: carga `@testing-library/jest-dom/vitest`, limpia el DOM, mocks y storage despues de cada prueba.
+
+### Ejecutar Vitest en modo watch
+
+```bash
+npm run test:vitest
+```
+
+Tambien se puede usar:
+
+```bash
+npm run test:watch
+```
+
+### Ejecutar pruebas unitarias y de componentes una sola vez
+
+```bash
+npm run test:unit
+```
+
+Este comando ejecuta Vitest en modo `run`, pensado para validaciones puntuales o integracion continua.
+
+### Ejecutar cobertura
+
+```bash
+npm run test:coverage
+```
+
+La cobertura se genera con el provider `v8` y se guarda en `coverage/`.
+
+### Scripts Vitest disponibles
+
+```json
+{
+  "test:vitest": "vitest",
+  "test:unit": "vitest run",
+  "test:watch": "vitest",
+  "test:coverage": "vitest run --coverage"
+}
+```
+
+### Uso de `.env.qa` en Vitest
+
+`vitest.config.js` puede leer `.env.qa`, pero solo carga variables frontend no sensibles:
+
+- `REACT_APP_ENV`
+- `REACT_APP_API_URL`
+
+Las credenciales y URLs propias de E2E deben reservarse para Playwright:
+
+- `QA_FRONTEND_URL`
+- `QA_BACKEND_URL`
+- `QA_ADMIN_EMAIL`
+- `QA_PROPIETARIO_EMAIL`
+- `QA_LIDER_EMAIL`
+- `QA_EMPLEADO_EMAIL`
+- `QA_USER_PASSWORD`
+
+No hardcodear credenciales en pruebas unitarias o de componentes. Si una prueba necesita backend real o usuarios QA reales, debe implementarse como prueba E2E con Playwright.
+
+### Diferencia entre Vitest y Playwright
+
+| Herramienta | Carpeta | Uso principal | Backend real |
+|---|---|---|---|
+| Vitest + React Testing Library | `tests/` | Unitarias, componentes e integracion ligera con mocks | No |
+| Playwright | `playwright-E2E/` | Flujos reales en navegador, login real, roles y navegacion completa | Si |
+
 ## Available Scripts
 
 In the project directory, you can run:

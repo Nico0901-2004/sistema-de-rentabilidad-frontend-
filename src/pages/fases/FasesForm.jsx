@@ -13,16 +13,25 @@ const FasesForm = ({ faseId, proyectoId, onSaved, onCancel }) => {
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingDetalle, setLoadingDetalle] = useState(false);
 
   useEffect(() => {
+    let isCurrent = true;
+
     if (!faseId) {
       setForm(EMPTY);
-      return;
+      setLoadingDetalle(false);
+      return () => {
+        isCurrent = false;
+      };
     }
 
     setError("");
+    setLoadingDetalle(true);
     getFaseById(faseId)
       .then((res) => {
+        if (!isCurrent) return;
+
         if (res?.success) {
           setForm({
             nombre: res.data.nombre || "",
@@ -33,8 +42,17 @@ const FasesForm = ({ faseId, proyectoId, onSaved, onCancel }) => {
         }
       })
       .catch((err) => {
+        if (!isCurrent) return;
+
         notifyError("Error al conectar con el servidor para cargar la fase."); //
+      })
+      .finally(() => {
+        if (isCurrent) setLoadingDetalle(false);
       });
+
+    return () => {
+      isCurrent = false;
+    };
   }, [faseId]);
 
   const handleChange = (e) => {
@@ -46,6 +64,8 @@ const FasesForm = ({ faseId, proyectoId, onSaved, onCancel }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+
+    if (loadingDetalle) return;
 
     // ── SUBTAREA: VALIDACIONES [H41] ──
     // Criterio: El nombre de la fase es obligatorio
@@ -132,6 +152,7 @@ const FasesForm = ({ faseId, proyectoId, onSaved, onCancel }) => {
               onChange={handleChange}
               error={error && error.includes("nombre")}
               placeholder="Ej: Diseño de Interfaz"
+              disabled={loading || loadingDetalle}
               required
               minLength={3}
               maxLength={100}
@@ -148,13 +169,15 @@ const FasesForm = ({ faseId, proyectoId, onSaved, onCancel }) => {
               min="1"
               step="0.1"
               placeholder="0.0"
+              disabled={loading || loadingDetalle}
               required
             />
           </div>
 
           <FormActions
             onCancel={onCancel}
-            loading={loading}
+            loading={loading || loadingDetalle}
+            loadingLabel={loadingDetalle ? "Cargando..." : "Guardando..."}
             submitLabel={faseId ? "Actualizar fase" : "Crear fase"}
           />
         </form>
