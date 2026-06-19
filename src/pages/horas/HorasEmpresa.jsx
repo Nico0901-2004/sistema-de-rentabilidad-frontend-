@@ -29,13 +29,11 @@ const HorasEmpresa = () => {
   const [dateHasta, setDateHasta] = useState("");
   const [filterFase, setFilterFase] = useState("");
   const [filterProyecto, setFilterProyecto] = useState("");
-  const [errorFechas, setErrorFechas] = useState("");
 
   const fetchHoras = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-      setErrorFechas("");
 
       const res = await getHorasEmpresa();
       if (res.success) {
@@ -55,14 +53,6 @@ const HorasEmpresa = () => {
   useEffect(() => {
     fetchHoras();
   }, [fetchHoras]);
-
-  // Validación de fechas
-  const handleFilterChange = () => {
-    setErrorFechas("");
-    if (dateDesde && dateHasta && dateDesde > dateHasta) {
-      setErrorFechas("La fecha 'Desde' no puede ser mayor que 'Hasta'");
-    }
-  };
 
   // Extraer fases únicas
   const fasesUnicas = useMemo(() => {
@@ -90,15 +80,15 @@ const HorasEmpresa = () => {
 
   // Filtrar por fecha, fase y proyecto
   const horasFiltradas = useMemo(() => {
-    if (errorFechas) return horas;
     return horas.filter((hora) => {
-      if (dateDesde && hora.fecha < dateDesde) return false;
-      if (dateHasta && hora.fecha > dateHasta) return false;
+      const fechaHora = String(hora.fecha || "").slice(0, 10);
+      if (dateDesde && fechaHora < dateDesde) return false;
+      if (dateHasta && fechaHora > dateHasta) return false;
       if (filterFase && String(hora.id_fase ?? "") !== filterFase) return false;
       if (filterProyecto && String(hora.id_proyecto ?? "") !== filterProyecto) return false;
       return true;
     });
-  }, [horas, dateDesde, dateHasta, filterFase, filterProyecto, errorFechas]);
+  }, [horas, dateDesde, dateHasta, filterFase, filterProyecto]);
 
   // Calcular totales
   const { totalRegistros, totalHoras } = useMemo(() => {
@@ -172,67 +162,76 @@ const HorasEmpresa = () => {
   ];
 
   const filters = (
-    <div className="d-flex flex-wrap gap-2 align-items-center">
-      <select
-        className="form-control form-control-sm"
-        style={{ maxWidth: 180 }}
-        value={filterProyecto}
-        onChange={(e) => setFilterProyecto(e.target.value)}
-      >
-        <option value="">- Todos los proyectos -</option>
-        {proyectosUnicos.map(([id, nombre]) => (
-          <option key={id} value={id}>{nombre}</option>
-        ))}
-      </select>
+    <div className="d-flex align-items-end flex-wrap gap-3">
+      <div>
+        <label className="form-label fw-semibold small mb-1">Proyecto</label>
+        <select
+          className="form-select"
+          style={{ minWidth: 220 }}
+          value={filterProyecto}
+          onChange={(e) => setFilterProyecto(e.target.value)}
+        >
+          <option value="">Todos los proyectos</option>
+          {proyectosUnicos.map(([id, nombre]) => (
+            <option key={id} value={id}>{nombre}</option>
+          ))}
+        </select>
+      </div>
 
-      <select
-        className="form-control form-control-sm"
-        style={{ maxWidth: 180 }}
-        value={filterFase}
-        onChange={(e) => setFilterFase(e.target.value)}
-      >
-        <option value="">- Todas las fases -</option>
-        {fasesUnicas.map(([id, nombre]) => (
-          <option key={id} value={id}>{nombre}</option>
-        ))}
-      </select>
+      <div>
+        <label className="form-label fw-semibold small mb-1">Fase</label>
+        <select
+          className="form-select"
+          style={{ minWidth: 220 }}
+          value={filterFase}
+          onChange={(e) => setFilterFase(e.target.value)}
+        >
+          <option value="">Todas las fases</option>
+          {fasesUnicas.map(([id, nombre]) => (
+            <option key={id} value={id}>{nombre}</option>
+          ))}
+        </select>
+      </div>
 
-      <label className="text-muted small mb-0">Desde:</label>
-      <input
-        type="date"
-        className="form-control form-control-sm"
-        style={{ maxWidth: 140 }}
-        value={dateDesde}
-        onChange={(e) => {
-          setDateDesde(e.target.value);
-          handleFilterChange();
-        }}
-      />
-      <label className="text-muted small mb-0">Hasta:</label>
-      <input
-        type="date"
-        className="form-control form-control-sm"
-        style={{ maxWidth: 140 }}
-        value={dateHasta}
-        onChange={(e) => {
-          setDateHasta(e.target.value);
-          handleFilterChange();
-        }}
-      />
-      <button
-        className="btn btn-sm btn-outline-secondary"
-        onClick={() => {
-          setDateDesde("");
-          setDateHasta("");
-          setFilterFase("");
-          setFilterProyecto("");
-          setErrorFechas("");
-        }}
-        disabled={!dateDesde && !dateHasta && !filterFase && !filterProyecto}
-      >
-        <i className="bi bi-arrow-clockwise me-1"></i>
-        Limpiar
-      </button>
+      <div>
+        <label className="form-label fw-semibold small mb-1">Desde</label>
+        <input
+          type="date"
+          className="form-control"
+          value={dateDesde}
+          onChange={(e) => {
+            const nextDesde = e.target.value;
+            setDateDesde(nextDesde);
+            if (dateHasta && nextDesde > dateHasta) setDateHasta("");
+          }}
+        />
+      </div>
+
+      <div>
+        <label className="form-label fw-semibold small mb-1">Hasta</label>
+        <input
+          type="date"
+          className="form-control"
+          value={dateHasta}
+          min={dateDesde || undefined}
+          onChange={(e) => setDateHasta(e.target.value)}
+        />
+      </div>
+
+      {(dateDesde || dateHasta || filterFase || filterProyecto) && (
+        <button
+          type="button"
+          className="btn btn-light fw-semibold"
+          onClick={() => {
+            setDateDesde("");
+            setDateHasta("");
+            setFilterFase("");
+            setFilterProyecto("");
+          }}
+        >
+          Limpiar filtros
+        </button>
+      )}
     </div>
   );
 
@@ -247,13 +246,6 @@ const HorasEmpresa = () => {
             </p>
           </div>
         </div>
-
-        {errorFechas && (
-          <div className="alert alert-warning d-flex align-items-center small rounded-3 mb-3">
-            <i className="bi bi-exclamation-triangle-fill me-2"></i>
-            {errorFechas}
-          </div>
-        )}
 
         {error && (
           <div className="alert alert-danger d-flex align-items-center small rounded-3">
