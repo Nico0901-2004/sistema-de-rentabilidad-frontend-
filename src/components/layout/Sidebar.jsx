@@ -29,10 +29,8 @@ const getNavItems = (rol, puedeVerMarcajes) => {
         { to: "/panel-lider", icon: "bi-grid-fill", label: "Mi Panel" },
         ...(puedeVerMarcajes ? [{ to: "/mis-marcajes", icon: "bi-calendar-check", label: "Mis Marcajes" }] : []),
         { to: "/proyectos", icon: "bi-kanban-fill", label: "Proyectos" },
-        { to: "/horas-equipo", icon: "bi-clock-history", label: "Horas del Equipo" },
         { to: "/notas", icon: "bi-journal-text", label: "Notas" },
         { to: "/mis-horas", icon: "bi-clock", label: "Mis Horas" },
-        // --- SE AGREGÓ ESTA LÍNEA PARA EL LÍDER ---
         { to: "/horas-equipo", icon: "bi-clock-history", label: "Horas del Equipo" },
         { to: "/perfil", icon: "bi-person-circle", label: "Mi Perfil" },
       ];

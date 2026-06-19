@@ -21,7 +21,6 @@ import Rentabilidad     from "../pages/rentabilidad/Rentabilidad";
 // Horas y Asistencia
 import MisHorasList     from "../pages/horas/MisHorasList";
 import MarcajesList     from "../pages/horas/MarcajesList"; // HU 34
-import HorasEmpresaList from "../pages/horas/HorasEmpresaList"; // <-- NUEVO COMPONENTE IMPORTADO
 import MarcajesEmpresa  from "../pages/horas/MarcajesEmpresa";
 import HorasEmpresa     from "../pages/horas/HorasEmpresa";
 
@@ -142,13 +141,6 @@ export default function AppRouter() {
       <Route path="/mis-horas" element={
         <RequireAuth>
           <RequireRole roles={["empleado", "lider"]}><MisHorasList /></RequireRole>
-        </RequireAuth>
-      } />
-
-      {/* ══════════ SUPERVISIÓN DE HORAS EQUIPO (NUEVO) ══════════ */}
-      <Route path="/horas-equipo" element={
-        <RequireAuth>
-          <RequireRole roles={["propietario", "lider"]}><HorasEmpresaList /></RequireRole>
         </RequireAuth>
       } />
 
