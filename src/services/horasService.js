@@ -32,3 +32,13 @@ export const getMisMarcajes = async () => {
   const response = await api.get("/marcajes");
   return response.data;
 };
+
+export const getMarcajesEmpresa = async () => {
+  const response = await api.get("/marcajes/empresa");
+  return response.data;
+};
+
+export const getHorasEmpresa = async () => {
+  const response = await api.get("/horas/empresa");
+  return response.data;
+};

@@ -19,6 +19,8 @@ const getNavItems = (rol, puedeVerMarcajes) => {
         { to: "/usuarios", icon: "bi-people-fill", label: "Usuarios" },
         { to: "/servicios", icon: "bi-briefcase-fill", label: "Servicios" },
         { to: "/proyectos", icon: "bi-kanban-fill", label: "Proyectos" },
+        { to: "/horas-equipo", icon: "bi-clock-history", label: "Horas del Equipo" },
+        { to: "/marcajes-empresa", icon: "bi-calendar-check", label: "Marcajes de la Empresa" },
         { to: "/rentabilidad", icon: "bi-graph-up-arrow", label: "Rentabilidad" },
         { to: "/perfil", icon: "bi-person-circle", label: "Mi Perfil" },
       ];
@@ -27,6 +29,7 @@ const getNavItems = (rol, puedeVerMarcajes) => {
         { to: "/panel-lider", icon: "bi-grid-fill", label: "Mi Panel" },
         ...(puedeVerMarcajes ? [{ to: "/mis-marcajes", icon: "bi-calendar-check", label: "Mis Marcajes" }] : []),
         { to: "/proyectos", icon: "bi-kanban-fill", label: "Proyectos" },
+        { to: "/horas-equipo", icon: "bi-clock-history", label: "Horas del Equipo" },
         { to: "/notas", icon: "bi-journal-text", label: "Notas" },
         { to: "/perfil", icon: "bi-person-circle", label: "Mi Perfil" },
       ];
