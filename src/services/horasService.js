@@ -34,6 +34,11 @@ export const getMisMarcajes = async () => {
 };
 
 // Añadir esta nueva función para el Propietario y el Líder
+export const getMarcajesEmpresa = async () => {
+  const response = await api.get("/marcajes/empresa");
+  return response.data;
+};
+
 export const getHorasEmpresa = async () => {
   const response = await api.get("/horas/empresa");
   return response.data;

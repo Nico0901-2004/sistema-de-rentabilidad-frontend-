@@ -22,6 +22,8 @@ import Rentabilidad     from "../pages/rentabilidad/Rentabilidad";
 import MisHorasList     from "../pages/horas/MisHorasList";
 import MarcajesList     from "../pages/horas/MarcajesList"; // HU 34
 import HorasEmpresaList from "../pages/horas/HorasEmpresaList"; // <-- NUEVO COMPONENTE IMPORTADO
+import MarcajesEmpresa  from "../pages/horas/MarcajesEmpresa";
+import HorasEmpresa     from "../pages/horas/HorasEmpresa";
 
 // Compartidas
 import ProyectoList     from "../pages/proyectos/ProyectoList";
@@ -155,6 +157,16 @@ export default function AppRouter() {
         <RequireAuth>
           {/* CORRECCIÓN: Permitimos al Líder acceder a su vista de historial de asistencia técnica */}
           <RequireMarcajesAccess><MarcajesList /></RequireMarcajesAccess>
+        </RequireAuth>
+      } />
+      <Route path="/marcajes-empresa" element={
+        <RequireAuth>
+          <RequireRole roles={["propietario"]}><MarcajesEmpresa /></RequireRole>
+        </RequireAuth>
+      } />
+      <Route path="/horas-equipo" element={
+        <RequireAuth>
+          <RequireRole roles={["lider", "propietario"]}><HorasEmpresa /></RequireRole>
         </RequireAuth>
       } />
 
