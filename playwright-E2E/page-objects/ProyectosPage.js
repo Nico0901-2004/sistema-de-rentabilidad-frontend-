@@ -148,7 +148,7 @@ class ProyectosPage {
   async fillCreateForm(projectData) {
     await this.nameInput.fill(projectData.nombre);
     await this.descriptionInput.fill(projectData.descripcion);
-    const service = await this.selectOptionByLabel(this.serviceSelect, 'Desarrollo Web', 'servicio');
+    const service = await this.selectFirstAvailableService();
     const leader = await this.selectOptionByLabel(this.leaderSelect, 'QA Lider', 'lider');
     const employee = await this.selectEmployeeByName('Primer QA Empleado');
 

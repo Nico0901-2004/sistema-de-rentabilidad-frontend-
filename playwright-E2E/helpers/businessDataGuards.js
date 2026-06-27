@@ -51,9 +51,81 @@ const deactivateCreatedProject = async (projectId) => {
     `UPDATE proyecto
      SET is_active = false
      WHERE id_proyecto = $1
-       AND nombre LIKE 'Proyecto QA Registro %'`,
+       AND nombre LIKE 'CP-HU18-E2E-%'`,
     [Number(projectId)]
   );
+};
+
+const cleanupCreatedCompany = async ({ companyId, companyName } = {}) => {
+  if (!companyId && !companyName) return;
+
+  const pool = getBackendQaPool();
+  await pool.query(
+    `DELETE FROM empresa
+     WHERE ($1::integer IS NULL OR id_empresa = $1)
+       AND ($2::text IS NULL OR nombre = $2)
+       AND nombre LIKE 'CP HU Cuatro Empresa %'`,
+    [companyId ? Number(companyId) : null, companyName || null]
+  );
+};
+
+const deactivateCreatedNote = async (noteId) => {
+  if (!noteId) return;
+
+  const pool = getBackendQaPool();
+  await pool.query(
+    `UPDATE nota
+     SET is_active = false
+     WHERE id_nota = $1
+       AND descripcion LIKE 'CP-HU26-E2E-%'`,
+    [Number(noteId)]
+  );
+};
+
+const deactivateCreatedService = async (serviceId) => {
+  if (!serviceId) return;
+
+  const pool = getBackendQaPool();
+  await pool.query(
+    `UPDATE servicio
+     SET is_active = false
+     WHERE id_servicio = $1
+       AND nombre LIKE 'CP HU Ocho Servicio %'`,
+    [Number(serviceId)]
+  );
+};
+
+const cleanupCreatedEmployee = async ({ userId, email } = {}) => {
+  if (!userId && !email) return;
+
+  const pool = getBackendQaPool();
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+    const userResult = await client.query(
+      `SELECT id_usuario
+       FROM usuario
+       WHERE ($1::integer IS NULL OR id_usuario = $1)
+         AND ($2::text IS NULL OR LOWER(email) = LOWER($2))
+         AND email LIKE 'cp_hu13_e2e_%@test.com'
+       LIMIT 1`,
+      [userId ? Number(userId) : null, email || null]
+    );
+    const targetUserId = userResult.rows[0]?.id_usuario;
+
+    if (targetUserId) {
+      await client.query('DELETE FROM historial_sueldo WHERE id_usuario = $1', [targetUserId]);
+      await client.query('DELETE FROM usuario WHERE id_usuario = $1', [targetUserId]);
+    }
+
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 const getQaTechCompanyId = async (client) => {
@@ -404,12 +476,16 @@ const resetQaUserProfile = async (role = 'empleado') => {
 };
 
 module.exports = {
+  cleanupCreatedCompany,
+  cleanupCreatedEmployee,
   cleanupCreatedOwnerAndCompany,
   cleanupMarcajeEmployee,
   createHourRecordForUser,
   createMonthlyEmployeeForMarcaje,
   createPhaseForProject,
   deactivateCreatedProject,
+  deactivateCreatedNote,
+  deactivateCreatedService,
   deactivateCreatedPhase,
   deleteHourRecordsByDescription,
   getProjectByName,

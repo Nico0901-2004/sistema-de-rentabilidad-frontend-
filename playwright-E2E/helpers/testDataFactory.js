@@ -58,12 +58,40 @@ const getProjectRegistrationData = (testInfo) => {
   endDate.setDate(endDate.getDate() + 30);
 
   return {
-    nombre: `Proyecto QA Registro #${suffix} / E2E`,
+    nombre: `CP-HU18-E2E-${suffix}`,
     descripcion: 'Proyecto automatizado de prueba',
     presupuesto: '15000',
     margen: '20',
     fecha_inicio: toIsoDate(startDate),
     fecha_fin_estimada: toIsoDate(endDate),
+  };
+};
+
+const getCompanyRegistrationData = (testInfo) => ({
+  nombre: `CP HU Cuatro Empresa ${getLettersOnlySuffix(testInfo)}`,
+});
+
+const getNoteRegistrationData = (testInfo) => ({
+  proyecto: 'Proyecto Delta',
+  descripcion: `CP-HU26-E2E-${getUniqueSuffix(testInfo)}`,
+});
+
+const getServiceRegistrationData = (testInfo) => ({
+  nombre: `CP HU Ocho Servicio ${getLettersOnlySuffix(testInfo)}`,
+  descripcion: `Servicio automatizado ${getLettersOnlySuffix(testInfo)}`,
+});
+
+const getEmployeeRegistrationData = (testInfo) => {
+  const suffix = getUniqueSuffix(testInfo).replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+
+  return {
+    nombre: `CP HU Trece Empleado ${getLettersOnlySuffix(testInfo)}`,
+    email: `cp_hu13_e2e_${suffix}@test.com`,
+    password: 'Password123*',
+    rol: 'empleado',
+    monto: '3200',
+    tipo_pago: 'mensual',
+    horas_mensuales: '160',
   };
 };
 
@@ -119,6 +147,10 @@ module.exports = {
   getLettersOnlySuffix,
   getProfileEditName,
   getProjectRegistrationData,
+  getCompanyRegistrationData,
+  getNoteRegistrationData,
+  getServiceRegistrationData,
+  getEmployeeRegistrationData,
   getOwnerRegistrationData,
   getTemporaryCompanyData,
   getPhaseData,
