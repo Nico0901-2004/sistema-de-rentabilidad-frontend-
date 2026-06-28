@@ -33,7 +33,11 @@ const formatNumber = (value, decimals = 1) =>
     maximumFractionDigits: decimals,
   });
 
-const formatDate = (date) => (date ? String(date).slice(0, 10) : "—");
+const formatDate = (date) => {
+  if (!date) return "—";
+  const [year, month, day] = String(date).slice(0, 10).split("-");
+  return year && month && day ? `${day}/${month}/${year}` : String(date);
+};
 
 const getProjectDate = (project) => project.fecha_inicio || project.fecha_fin_real || project.fecha_fin_estimada || "";
 
@@ -104,7 +108,7 @@ const getMarginStatus = (margin) => {
 };
 
 const StatCard = ({ icon, label, value, color, bg }) => (
-  <div className="stat-card card-3d animate-fadeInUp">
+  <div className="stat-card card-3d animate-fadeInUp h-100" style={{ minWidth: 0 }}>
     <div className="stat-card__glow" style={{ background: color }}></div>
     <div className="d-flex align-items-center gap-3">
       <div
@@ -115,7 +119,7 @@ const StatCard = ({ icon, label, value, color, bg }) => (
       </div>
       <div style={{ minWidth: 0 }}>
         <p className="text-muted small mb-0">{label}</p>
-        <h4 className="fw-bold mb-0 text-truncate" style={{ color }}>{value}</h4>
+        <h4 className="fw-bold mb-0 text-truncate" style={{ color, fontSize: "clamp(.9rem, 1.2vw, 1.05rem)" }}>{value}</h4>
       </div>
     </div>
   </div>
@@ -190,7 +194,7 @@ const Rentabilidad = () => {
   }, [rows, search, fechaDesde, fechaHasta, margenFiltro, estadoFiltro]);
 
   const totals = useMemo(() => {
-    const sum = (field) => rows.reduce((acc, item) => acc + Number(item[field] || 0), 0);
+    const sum = (field) => filtered.reduce((acc, item) => acc + Number(item[field] || 0), 0);
     const presupuesto = sum("presupuesto");
     const rentabilidad = sum("rentabilidad");
     return {
@@ -200,7 +204,7 @@ const Rentabilidad = () => {
       horas: sum("horas"),
       margenReal: presupuesto ? (rentabilidad / presupuesto) * 100 : 0,
     };
-  }, [rows]);
+  }, [filtered]);
 
   const clearFilters = () => {
     setSearch("");
@@ -214,8 +218,9 @@ const Rentabilidad = () => {
     const baseColumns = [
       {
         header: "Proyecto",
+        style: { width: "22%" },
         render: (project) => (
-          <div className="d-flex align-items-center gap-2">
+          <div className="d-flex align-items-center gap-2" style={{ minWidth: 0, overflow: "hidden" }}>
             <div
               className="rounded-3 d-flex align-items-center justify-content-center flex-shrink-0"
               style={{ width: 34, height: 34, background: "rgba(79,70,229,.1)" }}
@@ -229,13 +234,23 @@ const Rentabilidad = () => {
           </div>
         ),
       },
-      { header: "Servicio", cellClassName: "text-muted small", render: (project) => project.servicio || "—" },
-      { header: "Estado", render: (project) => <EstadoProyectoBadge estado={project.estado} /> },
+      {
+        header: "Servicio",
+        style: { width: "11%" },
+        cellClassName: "text-muted small",
+        render: (project) => <span className="d-block text-truncate">{project.servicio || "—"}</span>,
+      },
+      {
+        header: "Estado",
+        style: { width: "11%" },
+        render: (project) => <EstadoProyectoBadge estado={project.estado} />,
+      },
     ];
 
     if (available.presupuesto) {
       baseColumns.push({
         header: "Presupuesto",
+        style: { width: "10.5%" },
         headerClassName: "text-end",
         cellClassName: "text-end fw-semibold",
         render: (project) => project.presupuesto !== null ? formatMoney(project.presupuesto) : "—",
@@ -245,6 +260,7 @@ const Rentabilidad = () => {
     if (available.costos) {
       baseColumns.push({
         header: "Costos",
+        style: { width: "9.5%" },
         headerClassName: "text-end",
         cellClassName: "text-end",
         render: (project) => project.costos !== null ? formatMoney(project.costos) : "—",
@@ -254,6 +270,7 @@ const Rentabilidad = () => {
     if (available.rentabilidad) {
       baseColumns.push({
         header: "Rentabilidad",
+        style: { width: "11.5%" },
         headerClassName: "text-end",
         cellClassName: "text-end fw-bold",
         render: (project) => (
@@ -267,6 +284,7 @@ const Rentabilidad = () => {
     if (available.margenDeseado) {
       baseColumns.push({
         header: "Margen Deseado",
+        style: { width: "8.5%" },
         headerClassName: "text-end",
         cellClassName: "text-end fw-semibold text-muted small",
         render: (project) => project.margenDeseado !== null ? `${formatNumber(project.margenDeseado, 1)}%` : "—",
@@ -276,6 +294,7 @@ const Rentabilidad = () => {
     if (available.margenReal) {
       baseColumns.push({
         header: "Margen Real",
+        style: { width: "8%" },
         headerClassName: "text-end",
         cellClassName: "text-end",
         render: (project) => project.margenReal !== null ? (() => {
@@ -306,6 +325,7 @@ const Rentabilidad = () => {
     if (available.horas) {
       baseColumns.push({
         header: "Horas",
+        style: { width: "7%" },
         headerClassName: "text-end",
         cellClassName: "text-end",
         render: (project) => project.horas !== null ? `${formatNumber(project.horas, 1)}h` : "—",
@@ -315,19 +335,27 @@ const Rentabilidad = () => {
     if (available.fechas) {
       baseColumns.push({
         header: "Fechas",
+        style: { width: "8.5%" },
         cellClassName: "text-muted small",
         render: (project) => (
-          <>
-            Inicio: {formatDate(project.fecha_inicio)}
-            <br />
-            Fin est.: {formatDate(project.fecha_fin_estimada)}
+          <div style={{ minWidth: 0, lineHeight: 1.25 }}>
+            <span className="d-block text-truncate">Inicio</span>
+            <strong className="d-block text-truncate mb-1" style={{ color: "var(--text)", fontSize: ".72rem" }}>
+              {formatDate(project.fecha_inicio)}
+            </strong>
+            <span className="d-block text-truncate">Fin est.</span>
+            <strong className="d-block text-truncate" style={{ color: "var(--text)", fontSize: ".72rem" }}>
+              {formatDate(project.fecha_fin_estimada)}
+            </strong>
             {project.fecha_fin_real && (
               <>
-                <br />
-                <span className="text-success">Fin real: {formatDate(project.fecha_fin_real)}</span>
+                <span className="d-block text-success text-truncate mt-1">Fin real</span>
+                <strong className="d-block text-success text-truncate" style={{ fontSize: ".72rem" }}>
+                  {formatDate(project.fecha_fin_real)}
+                </strong>
               </>
             )}
-          </>
+          </div>
         ),
       });
     }
@@ -336,20 +364,22 @@ const Rentabilidad = () => {
   }, [available]);
 
   const filters = (
-    <div className="card border-0 rounded-4 mb-4" style={{ boxShadow: "var(--shadow-md)" }}>
+    <div className="card border-0 rounded-4 mb-3" style={{ boxShadow: "var(--shadow-md)" }}>
       <div className="card-body p-3">
         <div className="row g-2 align-items-end">
-          <div className="col-12 col-lg-4">
-            <label className="form-label small fw-bold text-muted">Proyecto</label>
+          <div className="col-12 col-lg-4 col-xl-3">
+            <label htmlFor="rentabilidad-proyecto" className="form-label small fw-bold text-muted mb-1">Proyecto</label>
             <div className="input-group">
-              <span className="input-group-text bg-white border-end-0">
+              <span className="input-group-text bg-white border-end-0" style={{ minHeight: 42 }}>
                 <i className="bi bi-search text-muted"></i>
               </span>
               <input
+                id="rentabilidad-proyecto"
                 type="text"
                 className="form-control border-start-0 ps-0"
                 placeholder="Buscar por proyecto..."
                 value={search}
+                style={{ minHeight: 42 }}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
@@ -357,21 +387,43 @@ const Rentabilidad = () => {
 
           {available.fechas && (
             <>
-              <div className="col-6 col-lg-2">
-                <label className="form-label small fw-bold text-muted">Desde</label>
-                <input type="date" className="form-control" value={fechaDesde} onChange={(e) => setFechaDesde(e.target.value)} />
+              <div className="col-6 col-md-4 col-lg-2 col-xl">
+                <label htmlFor="rentabilidad-desde" className="form-label small fw-bold text-muted mb-1">Desde</label>
+                <input
+                  id="rentabilidad-desde"
+                  type="date"
+                  className="form-control"
+                  value={fechaDesde}
+                  max={fechaHasta || undefined}
+                  style={{ minHeight: 42 }}
+                  onChange={(e) => setFechaDesde(e.target.value)}
+                />
               </div>
-              <div className="col-6 col-lg-2">
-                <label className="form-label small fw-bold text-muted">Hasta</label>
-                <input type="date" className="form-control" value={fechaHasta} onChange={(e) => setFechaHasta(e.target.value)} />
+              <div className="col-6 col-md-4 col-lg-2 col-xl">
+                <label htmlFor="rentabilidad-hasta" className="form-label small fw-bold text-muted mb-1">Hasta</label>
+                <input
+                  id="rentabilidad-hasta"
+                  type="date"
+                  className="form-control"
+                  value={fechaHasta}
+                  min={fechaDesde || undefined}
+                  style={{ minHeight: 42 }}
+                  onChange={(e) => setFechaHasta(e.target.value)}
+                />
               </div>
             </>
           )}
 
           {available.margenReal && (
-            <div className="col-12 col-lg-2">
-              <label className="form-label small fw-bold text-muted">Margen Real</label>
-              <select className="form-select" value={margenFiltro} onChange={(e) => setMargenFiltro(e.target.value)}>
+            <div className="col-6 col-md-4 col-lg-2 col-xl">
+              <label htmlFor="rentabilidad-margen" className="form-label small fw-bold text-muted mb-1">Margen real</label>
+              <select
+                id="rentabilidad-margen"
+                className="form-select"
+                value={margenFiltro}
+                style={{ minHeight: 42 }}
+                onChange={(e) => setMargenFiltro(e.target.value)}
+              >
                 <option value="">Todos</option>
                 <option value="alto">30% o más</option>
                 <option value="riesgo">0% a 29.9%</option>
@@ -381,9 +433,15 @@ const Rentabilidad = () => {
             </div>
           )}
 
-          <div className="col-12 col-lg-2">
-            <label className="form-label small fw-bold text-muted">Estado</label>
-            <select className="form-select" value={estadoFiltro} onChange={(e) => setEstadoFiltro(e.target.value)}>
+          <div className="col-6 col-md-4 col-lg-2 col-xl">
+            <label htmlFor="rentabilidad-estado" className="form-label small fw-bold text-muted mb-1">Estado</label>
+            <select
+              id="rentabilidad-estado"
+              className="form-select"
+              value={estadoFiltro}
+              style={{ minHeight: 42 }}
+              onChange={(e) => setEstadoFiltro(e.target.value)}
+            >
               <option value="">Todos</option>
               {ESTADOS_PROYECTO_LIST.map((estado) => (
                 <option key={estado} value={estado}>{estado}</option>
@@ -391,10 +449,14 @@ const Rentabilidad = () => {
             </select>
           </div>
 
-          <div className="col-12 col-lg-2">
-            <button className="btn btn-light w-100 fw-semibold" onClick={clearFilters}>
-              <i className="bi bi-x-circle me-2"></i>
-              Limpiar
+          <div className="col-6 col-md-4 col-lg-2 col-xl">
+            <button
+              className="btn btn-light w-100 fw-semibold d-inline-flex align-items-center justify-content-center gap-2 text-nowrap"
+              style={{ minHeight: 42 }}
+              onClick={clearFilters}
+            >
+              <i className="bi bi-x-circle"></i>
+              <span>Limpiar</span>
             </button>
           </div>
         </div>
@@ -404,7 +466,7 @@ const Rentabilidad = () => {
 
   return (
     <Layout>
-      <div className="animate-fadeInUp">
+      <div className="animate-fadeInUp w-100" style={{ minWidth: 0 }}>
         <div className="page-header d-flex justify-content-between align-items-start flex-wrap gap-3">
           <div>
             <h2 className="fw-bold mb-1">Rentabilidad</h2>
@@ -418,7 +480,7 @@ const Rentabilidad = () => {
           </div>
         )}
 
-        <div className="row g-3 mb-4 stagger">
+        <div className="row g-3 mb-3 stagger">
           {available.presupuesto && (
             <div className="col-12 col-sm-6 col-xl-3">
               <StatCard icon="bi-cash-stack" label="Presupuesto total" value={loading ? "..." : formatMoney(totals.presupuesto)} color="#4F46E5" bg="rgba(79,70,229,.1)" />
@@ -448,6 +510,7 @@ const Rentabilidad = () => {
           error=""
           rowKey={(project) => project.id_proyecto || project.id || project.nombre}
           filters={filters}
+          tableClassName="w-100"
           emptyIcon="bi-search"
           emptyMessage={proyectos.length === 0 ? "Sin datos de rentabilidad" : "Sin resultados"}
           rowClassName="animate-fadeIn"
