@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createHora, updateHora, getMisHoras } from "../../services/horasService";
-import { getMisProyectos } from "../../services/proyectoService"; // CORRECCIÓN CRÍTICA: Usamos getMisProyectos con accesos de empleado
+import { getMisProyectos } from "../../services/proyectoService"; 
 import { getFasesByProyecto } from "../../services/faseService"; 
 import { notifySuccess } from "../../utils/notify";
 
@@ -16,7 +16,15 @@ const today = () => {
   return `${values.year}-${values.month}-${values.day}`;
 };
 
-const HorasForm = ({ idRegistroEdicion, proyectoPreseleccionado, fasesPreseleccionadas = [], onSaved, onCancel, forceRequired = false }) => {
+const HorasForm = ({ 
+  idRegistroEdicion, 
+  proyectoPreseleccionado, 
+  fasesPreseleccionadas = [], 
+  onSaved, 
+  onCancel, 
+  forceRequired = false,
+  faltaMarcajeEntrada = false
+}) => {
   const proyectoInicial =
     proyectoPreseleccionado && typeof proyectoPreseleccionado === "object"
       ? proyectoPreseleccionado
@@ -37,9 +45,9 @@ const HorasForm = ({ idRegistroEdicion, proyectoPreseleccionado, fasesPreselecci
   const isProjectLocked = Boolean(proyectoInicialId);
   const isEdicion = Boolean(idRegistroEdicion);
 
-  // 1. Cargar proyectos asignados al empleado al montar el componente
+  // 1. Cargar proyectos
   useEffect(() => {
-    getMisProyectos() // CORRECCIÓN: Invocación autorizada para el rol empleado
+    getMisProyectos() 
       .then((res) => {
         const rawData = res?.success ? res.data : res;
         const data = Array.isArray(rawData) ? rawData : [];
@@ -59,14 +67,13 @@ const HorasForm = ({ idRegistroEdicion, proyectoPreseleccionado, fasesPreselecci
       });
   }, [proyectoInicial, proyectoInicialId]);
 
-  // 2. Lógica para HU 33 (Edición): Precargar los datos si recibimos un idRegistroEdicion
+  // 2. Lógica para Edición
   useEffect(() => {
     if (isEdicion) {
       setLoading(true);
       getMisHoras()
         .then((res) => {
           const registros = res?.success ? res.data : (Array.isArray(res) ? res : []);
-          // Buscamos el registro específico que queremos editar
           const registroAEditar = registros.find(
             (r) => (r.id_registro || r.id) === idRegistroEdicion
           );
@@ -88,7 +95,7 @@ const HorasForm = ({ idRegistroEdicion, proyectoPreseleccionado, fasesPreselecci
     }
   }, [idRegistroEdicion, isEdicion]);
 
-  // 3. HU 32: Cargar fases automáticamente cada vez que cambie o se seleccione un proyecto
+  // 3. Cargar fases automáticamente
   useEffect(() => {
     if (form.id_proyecto) {
       getFasesByProyecto(form.id_proyecto)
@@ -119,8 +126,9 @@ const HorasForm = ({ idRegistroEdicion, proyectoPreseleccionado, fasesPreselecci
       setError("Selecciona una fase asociada al proyecto.");
       return;
     }
-    if (Number(form.horas) < 0.5 || Number(form.horas) > 12) {
-      setError("Las horas deben estar entre 0.5 y 12.");
+    // LÍMITE ACTUALIZADO A 24 HORAS
+    if (Number(form.horas) < 0.5 || Number(form.horas) > 24) {
+      setError("Las horas deben estar entre 0.5 y 24.");
       return;
     }
 
@@ -153,6 +161,9 @@ const HorasForm = ({ idRegistroEdicion, proyectoPreseleccionado, fasesPreselecci
     }
   };
 
+  // Variable para determinar si mostramos la advertencia de exceso de horas
+  const superaLimiteRecomendado = Number(form.horas) > 12;
+
   return (
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && !forceRequired && onCancel()}>
       <div className="modal-card p-4 animate-scaleIn" style={{ zIndex: 1100 }}>
@@ -178,6 +189,26 @@ const HorasForm = ({ idRegistroEdicion, proyectoPreseleccionado, fasesPreselecci
         {error && (
           <div className="alert alert-danger d-flex align-items-center py-2 small rounded-3 mb-3">
             <i className="bi bi-exclamation-circle-fill me-2"></i>{error}
+          </div>
+        )}
+
+        {/* Advertencia de falta de marcaje */}
+        {faltaMarcajeEntrada && !isEdicion && (
+          <div className="alert alert-warning d-flex align-items-start py-2 small rounded-3 mb-3" role="alert">
+            <i className="bi bi-exclamation-triangle-fill me-2 mt-1 fs-6"></i>
+            <div>
+              <strong>Advertencia:</strong> Debes registrar tu entrada antes de registrar horas. Sin embargo, el sistema te permitirá registrar estas horas.
+            </div>
+          </div>
+        )}
+
+        {/* NUEVO BLOQUE: Advertencia por exceso de horas recomendadas */}
+        {superaLimiteRecomendado && (
+          <div className="alert alert-warning d-flex align-items-start py-2 small rounded-3 mb-3" role="alert">
+            <i className="bi bi-clock-history me-2 mt-1 fs-6"></i>
+            <div>
+              <strong>Advertencia:</strong> Has superado el límite recomendado de 12 horas. El sistema te permitirá registrar estas horas, pero verifica que la cantidad sea correcta.
+            </div>
           </div>
         )}
 
@@ -250,12 +281,12 @@ const HorasForm = ({ idRegistroEdicion, proyectoPreseleccionado, fasesPreselecci
               onChange={handleChange}
               className="form-control"
               min="0.5"
-              max="12"
+              max="24"     // ACTUALIZADO a 24
               step="0.5"
               required
               placeholder="Ej. 7.5"
             />
-            <div className="form-text text-muted small">El backend acepta entre 0.5 y 12 horas por día.</div>
+            <div className="form-text text-muted small">El backend acepta entre 0.5 y 24 horas por día.</div>
           </div>
 
           {/* Campo: Descripción */}

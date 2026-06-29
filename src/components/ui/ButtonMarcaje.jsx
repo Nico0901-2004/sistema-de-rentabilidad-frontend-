@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext"; 
-import { getMisMarcajes, marcarEntrada, marcarSalida, createHora } from "../../services/horasService";
+import { getMisMarcajes, marcarEntrada, marcarSalida, createHora, getMisHoras } from "../../services/horasService";
 import { getMisProyectos } from "../../services/proyectoService";
 import { getFasesByProyecto } from "../../services/faseService";
 import { notifyError, notifySuccess } from "../../utils/notify";
@@ -26,6 +26,7 @@ const ButtonMarcaje = () => {
   const [estado, setEstado] = useState("idle");
   const [mensaje, setMensaje] = useState("");
   const [marcaje, setMarcaje] = useState({ entrada: false, salida: false });
+  const [marcajeActivo, setMarcajeActivo] = useState(null); // <-- NUEVO: Guarda el registro de entrada actual
 
   // Estados para el control dinámico multiproyecto
   const [showModalHoras, setShowModalHoras] = useState(false);
@@ -50,6 +51,7 @@ const ButtonMarcaje = () => {
       const entrada = Boolean((deHoy || abierta)?.hora_entrada);
       const salida = Boolean((deHoy || abierta)?.hora_salida);
 
+      setMarcajeActivo(abierta || null); // Guardamos para saber a qué hora ingresó
       setMarcaje({ entrada, salida });
       localStorage.setItem(storageKey, JSON.stringify({ entrada, salida }));
     } catch {
@@ -97,7 +99,34 @@ const ButtonMarcaje = () => {
     }
   };
 
-  // ── NUEVO FLUJO INTERCEPTOR DE SALIDA ──
+  // ── NUEVA LÓGICA: Calcular si las horas imputadas > tiempo cronológico ──
+  const checkHorasExcedidas = async (nuevasHoras = 0) => {
+    if (!marcajeActivo || !marcajeActivo.hora_entrada) return false;
+    try {
+      const resHoras = await getMisHoras();
+      const misHoras = resHoras?.success ? resHoras.data : (Array.isArray(resHoras) ? resHoras : []);
+
+      const todayStr = getTodayDate();
+      
+      // Sumar horas que el usuario ya tenga guardadas en el día
+      const horasHoy = misHoras
+        .filter(h => h.fecha && String(h.fecha).slice(0, 10) === todayStr)
+        .reduce((acc, h) => acc + Number(h.horas || 0), 0);
+
+      const totalHorasRegistradas = horasHoy + nuevasHoras;
+
+      // Calcular diferencia en horas desde la entrada
+      const msElapsed = new Date() - new Date(marcajeActivo.hora_entrada);
+      const hoursElapsed = msElapsed / (1000 * 60 * 60);
+
+      // Si registró más horas de las que físicamente ha trabajado, es un exceso
+      return totalHorasRegistradas > hoursElapsed;
+    } catch (e) {
+      return false; 
+    }
+  };
+
+  // ── FLUJO INTERCEPTOR DE SALIDA ──
   const handlePreMarcarSalida = async () => {
     if (loading || !marcaje.entrada || marcaje.salida) return;
     try {
@@ -105,8 +134,18 @@ const ButtonMarcaje = () => {
       setEstado("idle");
       setMensaje("");
 
-      // 1. Si el rol es Líder, ellos no imputan horas en bloques masivos, marcan salida directo.
+      // 1. Si el rol es Líder, marcamos salida directo pero verificamos exceso primero
       if (user?.rol === "lider") {
+        const excedido = await checkHorasExcedidas(0);
+        
+        if (excedido) {
+          // Confirm permite continuar si se acepta (OK = true, Cancel = false)
+          if (!window.confirm("Las horas registradas exceden el tiempo trabajado del día")) {
+            setLoading(false);
+            return; 
+          }
+        }
+
         const resSalida = await marcarSalida();
         const okMessage = resSalida?.message || "Salida registrada de forma exitosa.";
         setMarcaje({ entrada: true, salida: true });
@@ -118,7 +157,7 @@ const ButtonMarcaje = () => {
         return;
       }
 
-      // 2. Si es Empleado, cargamos sus proyectos activos y abrimos el modal PRIMERO
+      // 2. Si es Empleado, abrimos el modal
       let resProyectos = await getMisProyectos(); 
       const proyectos = resProyectos?.success ? resProyectos.data : (Array.isArray(resProyectos) ? resProyectos : []);
       
@@ -126,7 +165,6 @@ const ButtonMarcaje = () => {
       setFilasHoras([{ id_proyecto: "", id_fase: "", horas: 0.5, descripcion: "" }]);
       setErrorModal("");
       
-      // Desplegamos el modal para el llenado mandatorio
       setShowModalHoras(true);
     } catch (error) {
       notifyError("Error al inicializar el proceso de salida.");
@@ -179,12 +217,22 @@ const ButtonMarcaje = () => {
     for (const fila of filasHoras) {
       if (!fila.id_proyecto) return setErrorModal("Por favor, selecciona un proyecto en todas las filas.");
       if (!fila.id_fase) return setErrorModal("Por favor, selecciona una fase asociada para cada proyecto.");
-      if (Number(fila.horas) < 0.5 || Number(fila.horas) > 12) return setErrorModal("Cada registro debe tener entre 0.5 y 12 horas.");
+      // Actualizado a 24 horas máximo en sintonía con tu backend
+      if (Number(fila.horas) < 0.5 || Number(fila.horas) > 24) return setErrorModal("Cada registro debe tener entre 0.5 y 24 horas.");
       totalHorasDia += Number(fila.horas);
     }
 
-    if (totalHorasDia > 12) {
-      return setErrorModal("El total de horas acumuladas para el día de hoy no puede superar las 12 horas.");
+    // Actualizado a 24 horas máximo
+    if (totalHorasDia > 24) {
+      return setErrorModal("El total de horas acumuladas para el día de hoy no puede superar las 24 horas.");
+    }
+
+    // VERIFICACIÓN DE EXCESO DE TIEMPO
+    const excedido = await checkHorasExcedidas(totalHorasDia);
+    if (excedido) {
+      if (!window.confirm("Las horas registradas exceden el tiempo trabajado del día")) {
+        return; // El usuario detiene el proceso
+      }
     }
 
     try {
@@ -203,7 +251,7 @@ const ButtonMarcaje = () => {
 
       notifySuccess("¡Horas del día guardadas correctamente!");
 
-      // B) AUTOMÁTICO: Como las horas ya se guardaron con éxito, marcamos la salida real en el servidor
+      // B) AUTOMÁTICO: Marcamos la salida real en el servidor
       const resSalida = await marcarSalida();
       const okMessage = resSalida?.message || "Salida registrada de forma exitosa.";
 
@@ -286,7 +334,6 @@ const ButtonMarcaje = () => {
                     </div>
 
                     <div className="row g-2">
-                      {/* Selector Proyecto */}
                       <div className="col-12 col-sm-6">
                         <label className="fw-semibold small mb-1">Proyecto *</label>
                         <select 
@@ -302,7 +349,6 @@ const ButtonMarcaje = () => {
                         </select>
                       </div>
 
-                      {/* Selector Fase Relacional */}
                       <div className="col-12 col-sm-6">
                         <label className="fw-semibold small mb-1">Fase del Proyecto *</label>
                         <select 
@@ -319,20 +365,18 @@ const ButtonMarcaje = () => {
                         </select>
                       </div>
 
-                      {/* Cantidad Horas */}
                       <div className="col-4 col-sm-3">
                         <label className="fw-semibold small mb-1">Horas *</label>
                         <input 
                           type="number" 
                           className="form-control form-control-sm" 
-                          min="0.5" max="12" step="0.5" 
+                          min="0.5" max="24" step="0.5" 
                           value={fila.horas} 
                           onChange={(e) => handleFilaChange(index, "horas", e.target.value)} 
                           required 
                         />
                       </div>
 
-                      {/* Descripción Corta */}
                       <div className="col-8 col-sm-9">
                         <label className="fw-semibold small mb-1">Descripción de actividades</label>
                         <input 
