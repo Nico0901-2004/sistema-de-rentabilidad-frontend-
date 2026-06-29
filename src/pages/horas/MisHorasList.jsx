@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import Layout from "../../components/layout/Layout";
 import DataTable from "../../components/ui/DataTable";
 import HorasForm from "./HorasForm";
-import { getMisHoras } from "../../services/horasService";
+import { getMisHoras, getMisMarcajes } from "../../services/horasService"; // <-- IMPORTAMOS getMisMarcajes
 import { notifyInfo, notifyError } from "../../utils/notify";
 
 const getHorasData = (response) => {
@@ -33,8 +33,11 @@ const MisHorasList = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [selectedHoraId, setSelectedHoraId] = useState(null); // Estado para rastrear el ID en Edición (HU 33)
+  const [selectedHoraId, setSelectedHoraId] = useState(null);
   const [filterFase, setFilterFase] = useState("");
+  
+  // NUEVO ESTADO: Controla si falta el marcaje del día
+  const [faltaMarcajeEntrada, setFaltaMarcajeEntrada] = useState(false);
 
   const registroObligatorio = useMemo(
     () => searchParams.get("registrar") === "true" && searchParams.get("obligatorio") === "1",
@@ -71,9 +74,32 @@ const MisHorasList = () => {
     }
   }, []);
 
+  // NUEVA FUNCIÓN: Verifica si el usuario marcó entrada hoy
+  const verificarMarcajeHoy = useCallback(async () => {
+    try {
+      const res = await getMisMarcajes();
+      if (res?.success && Array.isArray(res.data)) {
+        const todayStr = getLimaDateString();
+        // Buscar si existe un marcaje cuya fecha coincida con hoy
+        const tieneMarcajeHoy = res.data.some(m => {
+          const fechaRegistro = m.fecha ? String(m.fecha).slice(0, 10) : "";
+          return fechaRegistro === todayStr;
+        });
+        
+        // Si no tiene marcaje hoy, falta el marcaje
+        setFaltaMarcajeEntrada(!tieneMarcajeHoy);
+      }
+    } catch (err) {
+      // Ignoramos errores (ej. 403 para un Líder que no usa marcajes) 
+      // y asumimos que no le falta marcaje para no bloquear su flujo.
+      setFaltaMarcajeEntrada(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchHoras();
-  }, [fetchHoras]);
+    verificarMarcajeHoy(); // Disparamos la validación silenciosamente
+  }, [fetchHoras, verificarMarcajeHoy]);
 
   useEffect(() => {
     if (searchParams.get("registrar") === "true") {
@@ -82,7 +108,6 @@ const MisHorasList = () => {
     }
   }, [searchParams]);
 
-  // Aseguramos que cada fila mantenga sus propiedades individuales para las acciones de la HU 30
   const registrosDetallados = useMemo(() => {
     return horas.map((r) => ({
       ...r,
@@ -91,7 +116,6 @@ const MisHorasList = () => {
     }));
   }, [horas]);
 
-  // Extraemos las fases únicas basándonos en los registros reales del empleado
   const fasesUnicas = useMemo(() => {
     const map = new Map();
     registrosDetallados.forEach((r) => {
@@ -103,13 +127,11 @@ const MisHorasList = () => {
     return Array.from(map.entries());
   }, [registrosDetallados]);
 
-  // Filtramos la lista según la fase seleccionada por el usuario
   const registrosFiltrados = useMemo(() => {
     if (!filterFase) return registrosDetallados;
     return registrosDetallados.filter((r) => String(r.id_fase ?? "") === filterFase);
   }, [registrosDetallados, filterFase]);
 
-  // Sumamos el total de horas acumuladas de la lista filtrada
   const totalHoras = useMemo(
     () => registrosFiltrados.reduce((acc, item) => acc + Number(item.horas || 0), 0),
     [registrosFiltrados]
@@ -119,6 +141,9 @@ const MisHorasList = () => {
     setShowForm(false);
     setSelectedHoraId(null);
     await fetchHoras();
+    
+    // Validar marcaje nuevamente tras guardar
+    await verificarMarcajeHoy();
 
     if (searchParams.get("registrar") === "true") {
       setSearchParams({});
@@ -138,7 +163,6 @@ const MisHorasList = () => {
     }
   };
 
-  // Manejador para abrir el formulario en Modo Edición (HU 33)
   const handleEditClick = (idRegistro) => {
     if (!idRegistro) {
       notifyError("No se pudo identificar el ID del registro para editar.");
@@ -148,9 +172,7 @@ const MisHorasList = () => {
     setShowForm(true);
   };
 
-  // --- LÓGICA DEL TICKET: Obtener la fecha de hoy para compararla con los registros ---
   const todayStr = getLimaDateString();
-  // -----------------------------------------------------------------------------------
 
   const columns = [
     {
@@ -220,7 +242,6 @@ const MisHorasList = () => {
             <h2 className="fw-bold mb-1">Mis Horas Trabajadas</h2>
             <p className="text-muted small mb-0">Horas registradas de forma detallada por proyecto y fase</p>
           </div>
-          {/* NUEVO BOTÓN AGREGADO AQUÍ */}
           <button 
             className="btn btn-primary d-flex align-items-center gap-2 shadow-sm"
             onClick={() => {
@@ -289,7 +310,6 @@ const MisHorasList = () => {
           emptyMessage="Sin horas registradas"
           rowClassName="animate-fadeIn"
           renderActions={(registro) => {
-            // --- LÓGICA DEL TICKET: Verificar si la fecha del registro es de hoy ---
             const fechaRegistro = registro.fecha ? registro.fecha.slice(0, 10) : "";
             const isToday = fechaRegistro === todayStr;
 
@@ -300,8 +320,6 @@ const MisHorasList = () => {
                     <i className="bi bi-pencil-square"></i>
                   </button>
                 ) : (
-                  // Si no es de hoy, mostramos un ícono bloqueado o atenuado (OPCIONAL)
-                  // También podrías simplemente retornar null para no mostrar ningún botón.
                   <button className="btn btn-sm btn-light shadow-sm text-muted" type="button" title="Solo se pueden editar registros del día actual" disabled>
                     <i className="bi bi-lock-fill"></i>
                   </button>
@@ -319,6 +337,7 @@ const MisHorasList = () => {
           onSaved={handleSaved}
           onCancel={handleCancel}
           forceRequired={registroObligatorio}
+          faltaMarcajeEntrada={faltaMarcajeEntrada} // <-- PASAMOS LA PROP AL FORMULARIO AQUÍ
         />
       )}
     </Layout>
